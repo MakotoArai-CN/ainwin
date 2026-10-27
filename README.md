@@ -2,6 +2,10 @@
 
 开发者：**MakotoArai-CN** · MIT
 
+**下载（含模型和 DLL）**：https://github.com/MakotoArai-CN/panasonic.ainwin/releases/latest
+
+源码仓库不提交模型和 `onnxruntime.dll`（大文件），克隆后请从 Releases 取完整包，或把 `models/`、`onnxruntime.dll` 放到本目录再构建。
+
 用一句中文（或英文）描述要找的文件，插件先拆出**主题概念、时间、文件类型、文件夹、大小和排除项**，再用 Win顺 自己的文件名/内容索引检索，最后用**本机 INT8 向量模型**把候选按意思重排。不联网、不调用云端 API、不上传任何文字。
 
 ```
