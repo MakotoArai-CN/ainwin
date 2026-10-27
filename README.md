@@ -2,7 +2,7 @@
 
 开发者：**MakotoArai-CN** · MIT
 
-**下载（含模型和 DLL）**：https://github.com/MakotoArai-CN/panasonic.ainwin/releases/latest
+**下载（含模型和 DLL）**：https://github.com/MakotoArai-CN/ainwin/releases/latest
 
 源码仓库不提交模型和 `onnxruntime.dll`（大文件），克隆后请从 Releases 取完整包，或把 `models/`、`onnxruntime.dll` 放到本目录再构建。
 

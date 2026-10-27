@@ -593,7 +593,7 @@ std::vector<std::string> phraseProbes(const Plan& plan)
 
 class Plugin : public winshun::Plugin {
 public:
-    std::string name() const override { return "panasonic.ainwin"; }
+    std::string name() const override { return "ainwin"; }
 
     winshun::Items query(const winshun::Query& q) override
     {
