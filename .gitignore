@@ -1,0 +1,8 @@
+.zig-cache/
+zig-out/
+*.pdb
+dist/
+tests/__pycache__/
+models/
+onnxruntime.dll
+ainwin.exe

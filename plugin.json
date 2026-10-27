@@ -1,0 +1,48 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LingCore/WinShun-plugins/main/schema/plugin.schema.json",
+  "manifest": 1,
+  "id": "panasonic.ainwin",
+  "name": {"zh": "意图找文件", "en": "Find by description"},
+  "version": "0.3.1",
+  "description": {"zh": "用一句话描述要找的文件：拆解概念、时间、类型、位置和大小，用本机 INT8 向量模型按意思重排；覆盖常见与冷门文件类型，支持显式扩展名和自定义行业类型。完全离线，不联网。", "en": "Describe the file you want; it parses concepts, time, type, place and size, then reranks with a local INT8 model. Common and rare types, explicit extensions and custom industry types. Fully offline."},
+  "author": "MakotoArai-CN",
+  "license": "MIT",
+  "minWinShun": "0.14.0",
+  "runtime": {"mode": "resident", "program": "ainwin.exe", "sandbox": "normal", "timeoutMs": 10000, "idleExitSec": 0, "memoryMB": 1024, "start": "eager"},
+  "permissions": ["winshun:search", "winshun:open"],
+  "commands": [
+    {
+      "id": "find",
+      "keyword": ["找", "zf"],
+      "title": {"zh": "按描述找文件", "en": "Find a file by description"},
+      "description": {"zh": "说一句你要找什么，不用记得文件名", "en": "Say what you are looking for; the name is not needed"},
+      "hint": {"zh": "例如：去年报销的规定、上周的会议记录、桌面上的合同 PDF", "en": "e.g. last year's expense rules, last week's meeting notes"},
+      "icon": "glyph:U+E721",
+      "actions": [
+        {"id": "default", "title": {"zh": "打开", "en": "Open"}, "key": "Enter"},
+        {"id": "copy", "title": {"zh": "复制路径", "en": "Copy path"}, "key": "Ctrl+Enter"},
+        {"id": "reveal", "title": {"zh": "在文件夹中显示", "en": "Show in folder"}, "key": "Shift+Enter"}
+      ],
+      "ai": {"description": "Find the user's local files by a natural-language description (Chinese or English), e.g. \"last year's travel expense rules\" or \"猫打针的记录\". It understands common concepts, time ranges, file types, folders and sizes, searches WinShun's file and content indexes, then reranks the passages with a local embedding model on this PC. Returns files and folders with path, why they matched and a content snippet. It is read-only and never opens files; the user opens a result."}
+    }
+  ],
+  "settings": [
+    {"key": "folders", "type": "text", "title": {"zh": "只看这些文件夹", "en": "Only these folders"}, "hint": {"zh": "用分号隔开，例如 %USERPROFILE%\\Documents;D:\\工作。留空搜索所有已索引位置", "en": "Separated by semicolons, e.g. %USERPROFILE%\\Documents;D:\\Work. Empty: everywhere indexed"}, "default": ""},
+    {"key": "content", "type": "bool", "title": {"zh": "也搜索文件内容", "en": "Search inside files too"}, "hint": {"zh": "用 Win顺 的文件内容索引；关掉就只按文件名找", "en": "Uses WinShun's file content index; off means names only"}, "default": true},
+    {"key": "snippets", "type": "bool", "title": {"zh": "在结果里显示内容片段", "en": "Show a content snippet"}, "hint": {"zh": "副标题里给出最相关的一段文字，方便不打开就判断", "en": "The most relevant passage in the subtitle, so you can judge without opening"}, "default": true},
+    {"key": "maxResults", "type": "number", "title": {"zh": "最多显示几条", "en": "Most results"}, "hint": {"zh": "3 到 30，默认 12", "en": "3 to 30, default 12"}, "default": 12},
+    {"key": "useModel", "type": "bool", "title": {"zh": "用本地向量模型重排", "en": "Rerank with the local model"}, "hint": {"zh": "完全在本机运行；关掉只用概念和词面", "en": "Entirely on this PC; off means concepts and words only"}, "default": true},
+    {"key": "modelPreset", "type": "choice", "title": {"zh": "模型档位", "en": "Model preset"}, "hint": {"zh": "自动：内存 ≥16GB 且放了 base 时用均衡，否则轻量。换档后下一条查询生效", "en": "Auto: balanced when 16 GB+ RAM and the base model is present, otherwise light. Applies to the next query"}, "options": [
+      {"value": "auto", "title": {"zh": "自动（按内存和已放模型选）", "en": "Auto (by RAM and installed models)"}},
+      {"value": "light", "title": {"zh": "轻量 · bge-small INT8 · 24 MB · 最快", "en": "Light · bge-small INT8 · 24 MB · fastest"}},
+      {"value": "balanced", "title": {"zh": "均衡 · bge-base INT8 · 103 MB · 更准", "en": "Balanced · bge-base INT8 · 103 MB · more accurate"}},
+      {"value": "large", "title": {"zh": "高质量 · bge-large INT8 · 需自备 327 MB", "en": "Quality · bge-large INT8 · bring your own 327 MB"}},
+      {"value": "custom", "title": {"zh": "自定义模型文件夹", "en": "Custom model folder"}}
+    ], "default": "auto"},
+    {"key": "modelDir", "type": "text", "title": {"zh": "自定义模型文件夹", "en": "Custom model folder"}, "hint": {"zh": "仅“自定义”档使用；相对插件目录，里面要有 model_quantized.onnx、vocab.txt 和 onnxruntime.dll", "en": "Only for the Custom preset; relative to the plugin folder: model_quantized.onnx, vocab.txt and onnxruntime.dll"}, "default": "models\\bge-small-zh-v1.5-int8"},
+    {"key": "threads", "type": "number", "title": {"zh": "模型线程数", "en": "Model threads"}, "hint": {"zh": "1 到 8，默认 4；性能好的机器可以调高", "en": "1 to 8, default 4; higher on a fast machine"}, "default": 4},
+    {"key": "maxLength", "type": "number", "title": {"zh": "每段最多几个词元", "en": "Tokens per passage"}, "hint": {"zh": "64 到 384，默认 128；越大越准也越慢", "en": "64 to 384, default 128; more is more accurate and slower"}, "default": 128},
+    {"key": "extraTypes", "type": "text", "title": {"zh": "自定义类型", "en": "Your own types"}, "hint": {"zh": "格式：词=扩展名;词=扩展名。例：点云=las,laz;标本=svs,ndpi;注塑=mold,stp。不认识的行业格式写在这里，或直接用 *.扩展名", "en": "Format: word=ext;word=ext. e.g. pointcloud=las,laz; or just type *.ext"}, "default": ""}
+  ],
+  "ai": {"expose": true}
+}
