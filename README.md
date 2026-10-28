@@ -70,11 +70,9 @@
 
 类型是**硬过滤**，但仍会和“概念/文件名/内容”一起排序；`找 数据库脚本` 会收窄到 `.sql`，`找 数据库文件` 是 `.db/.sqlite/...`，两者不会混。格式不在时，文档类（PDF/Word/PPT/表格/图片等）会自动放宽类型并提示；代码/数据库这类格式（`.cpp`、`.sql`、`.db`）不会拿别的格式冒充。
 
-## 微信传输的文件
+## 聊天/办公软件的文件
 
-`微信文件` 默认指微信**收发的文件**，不是微信客户端自己的配置、缓存或表情。
-
-插件只扫 `WeChat Files` / `xwechat_files` 里的传输目录：
+`微信文件` 默认指微信**收发的文件**，不是微信客户端自己的配置、缓存或表情。QQ、企业微信、钉钉、飞书、WPS 同样按“传输/接收文件”处理。
 
 ```
 找 昨天的微信word文件
@@ -82,14 +80,24 @@
 找 微信图片
 找 weixin视频
 找 微信压缩包
+找 QQ图片
+找 QQ视频
+找 昨天的QQ文件
+找 WPS文件
 ```
 
-- Word/Excel/PDF/压缩包按原始扩展名识别；
-- 图片和视频按传输目录里的原文件识别；
-- 微信自己的 `config`、`Cache`、`CustomEmotion`、`Thumb`、`Temp` 不进入结果；
-- 加密的 `.dat` 图片/视频会跳过，避免给出打不开的文件。
+只扫这些软件的传输/接收目录：
 
-需要只读 `Documents\WeChat Files` 和 `Documents\xwechat_files` 的 `files:read`；目录可用「微信文件目录」设置改。没有应用搜索。
+- 微信：`WeChat Files` / `xwechat_files`
+- QQ：`Tencent Files` 的 `FileRecv`、`nt_data\File/Pic/Video`
+- 企业微信：`WXWork`
+- 钉钉：`DingTalk`
+- 飞书：`Feishu` / `Lark`
+- WPS：`WPS Cloud Files` 的云文档，跳过本地缓存
+
+客户端自己的 `config`、`Cache`、`CustomEmotion`、`Thumb`、`Temp` 不进入结果；加密的 `.dat` 图片/视频会跳过。Word/Excel 本身没有统一收件目录，保存位置仍按普通文件索引搜索。
+
+需要只读上述目录的 `files:read`；目录可用「聊天/办公软件文件目录」设置改。没有应用搜索。
 
 ## 系统设置也能找
 
@@ -195,7 +203,7 @@
 |---|---|
 | `winshun:search` | 调用 Win顺 的 `search_files` / `search_content`，读索引里的路径、时间、大小和文字片段；插件不遍历磁盘。 |
 | `winshun:open` | 打开用户选中的文件/设置页，或只在 **Shift+Enter** 时调用 `show_in_folder` 定位结果。 |
-| `files:read`（限微信目录） | 只读 `Documents\WeChat Files` 和 `Documents\xwechat_files` 下的传输文件，用来找微信收发的 Word/Excel/图片/视频；不读其他文件。 |
+| `files:read`（限聊天/办公软件目录） | 只读微信、QQ、企业微信、钉钉、飞书、WPS 的传输/接收目录，用来找收到的 Word/Excel/图片/视频；不读其他文件。 |
 
 没有申请：`network`、`clipboard:read`、`clipboard:write`、`processes`、`files:write`、`winshun:content`、`ui`。模型和 DLL 是插件自己的资源，从插件目录读取。
 

@@ -13,7 +13,7 @@
 #include "lexicon.h"
 #include "planner.h"
 #include "settings.h"
-#include "wechat.h"
+#include "appfiles.h"
 
 #include <algorithm>
 #include <chrono>
@@ -626,19 +626,19 @@ public:
         // WeChat's transferred files live outside the normal document index and
         // are mostly hash-named. Scan only FileStorage/msg subtrees, not the
         // client's config, cache or emoji data.
-        if (finder::isWeChatQuery(text) && plan.folder.empty() && !plan.type.folders) {
+        if (finder::isAppFileQuery(text) && plan.folder.empty() && !plan.type.folders) {
             const Settings s = currentSettings();
-            const std::vector<finder::WeChatFile> found = finder::findWeChatFiles(plan, s.wechatDirs, s.maxResults);
+            const std::vector<finder::AppFile> found = finder::findAppFiles(plan, s.wechatDirs, s.maxResults);
             if (!found.empty()) {
                 Items items;
-                for (const finder::WeChatFile& file : found) {
+                for (const finder::AppFile& file : found) {
                     Item item("w:" + lowerKey(file.path), file.name,
-                        (chinese() ? "微信传输 · " : "WeChat transfer · ") + formatWhen(file.modified) + " · " + humanSize(file.size));
+                        (chinese() ? finder::sourceLabel(file.source) + " · " : finder::sourceLabel(file.source) + " · ") + formatWhen(file.modified) + " · " + humanSize(file.size));
                     item.withPath(file.path).withIcon("file:" + file.path).withCopy(file.path)
-                        .withData(Json::Object {{"kind", "file"}, {"path", file.path}, {"source", "wechat"}});
+                        .withData(Json::Object {{"kind", "file"}, {"path", file.path}, {"source", file.source}});
                     items.push_back(std::move(item));
                 }
-                winshun::debug("[find] wechat files=" + std::to_string(items.size()));
+                winshun::debug("[find] app files=" + std::to_string(items.size()));
                 if (m_cache.size() > 24)
                     m_cache.clear();
                 m_cache[key] = CacheEntry {now, items};
@@ -2194,15 +2194,16 @@ static int runBench(const std::string& modelDir, const std::string& datasetPath)
 
 int main(int argc, char** argv)
 {
-    if (argc >= 3 && finder::argToUtf8(argv[1]) == "--wechat") {
+    const std::string command = argc >= 3 ? finder::argToUtf8(argv[1]) : std::string();
+    if (command == "--appfiles" || command == "--wechat") {
         const std::string text = finder::argToUtf8(argv[2]);
         const finder::Plan plan = finder::parsePlan(text);
-        for (const finder::WeChatFile& file : finder::findWeChatFiles(plan, "", 50))
-            std::printf("%s\t%s\t%s\t%lld\n", file.name.c_str(), formatWhen(file.modified).c_str(),
-                humanSize(file.size).c_str(), file.modified);
+        for (const finder::AppFile& file : finder::findAppFiles(plan, "", 50))
+            std::printf("%s\t%s\t%s\t%s\t%s\n", file.source.c_str(), file.name.c_str(),
+                formatWhen(file.modified).c_str(), humanSize(file.size).c_str(), file.path.c_str());
         return 0;
     }
-    if (argc >= 3 && finder::argToUtf8(argv[1]) == "--settings") {
+    if (command == "--settings") {
         const std::string text = finder::argToUtf8(argv[2]);
         for (const finder::SettingsEntry* entry : finder::matchSettings(text, 10))
             std::printf("%s\t%s\t%s\n", entry->id, entry->title, entry->target);
