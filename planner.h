@@ -752,8 +752,12 @@ inline bool parseFolder(std::string& work, std::string& folder, std::string& lab
     struct Named { const char* words; const char* sub; const char* label; };
     static const Named named[] = {
         {"桌面,desktop", "Desktop", "桌面"},
-        {"下载,downloads", "Downloads", "下载"},
-        {"我的文档", "Documents", "文档"},
+        {"下载,download,downloads", "Downloads", "下载"},
+        {"我的文档,文档,document,documents,docs", "Documents", "文档"},
+        {"图片,照片,picture,pictures,photo,photos", "Pictures", "图片"},
+        {"音乐,music", "Music", "音乐"},
+        {"视频,video,videos", "Videos", "视频"},
+        {"onedrive", "OneDrive", "OneDrive"},
     };
     const std::string home = userProfile();
     for (const Named& n : named) {
@@ -761,6 +765,21 @@ inline bool parseFolder(std::string& work, std::string& folder, std::string& lab
             const std::size_t at = findTerm(work, word);
             if (at == std::string::npos)
                 continue;
+            const std::string lowerWord = lowerAscii(word);
+            const bool typeWord = lowerWord == "文档" || lowerWord == "document" || lowerWord == "documents"
+                || lowerWord == "docs" || lowerWord == "图片" || lowerWord == "picture" || lowerWord == "pictures" || lowerWord == "photo" || lowerWord == "photos"
+                || lowerWord == "音乐" || lowerWord == "music" || lowerWord == "视频" || lowerWord == "video" || lowerWord == "videos";
+            if (typeWord) {
+                std::string tail = work.substr(at + word.size());
+                while (!tail.empty() && tail.front() == ' ')
+                    tail.erase(tail.begin());
+                const bool context = tail.rfind("里面", 0) == 0 || tail.rfind("里的", 0) == 0
+                    || tail.rfind("中的", 0) == 0 || tail.rfind("内的", 0) == 0
+                    || tail.rfind("文件夹", 0) == 0 || tail.rfind("目录", 0) == 0
+                    || tail.rfind("folder", 0) == 0 || tail.rfind("directory", 0) == 0;
+                if (!context)
+                    continue;
+            }
             if (home.empty())
                 return false;
             folder = home + "\\" + n.sub;
