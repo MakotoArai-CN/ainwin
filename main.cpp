@@ -126,6 +126,37 @@ std::string folderTerm(const std::string& folder)
     return name;
 }
 
+// App data folders often have English names even on a Chinese system:
+// 微信 stores under WeChat Files, QQ under Tencent Files, etc. Searching the
+// Chinese word alone finds nothing in the file index, so probe these aliases.
+std::vector<std::string> appFolderAliases(const std::string& text)
+{
+    const std::string lower = finder::lowerAscii(text);
+    std::vector<std::string> out;
+    const auto add = [&](const char* alias) {
+        if (std::find(out.begin(), out.end(), alias) == out.end())
+            out.emplace_back(alias);
+    };
+    if (lower.find("企业微信") != std::string::npos || lower.find("wxwork") != std::string::npos) {
+        add("wxwork");
+    } else if (lower.find("微信") != std::string::npos || lower.find("wechat") != std::string::npos) {
+        add("wechat");
+    }
+    if (lower.find("qq") != std::string::npos || lower.find("腾讯") != std::string::npos)
+        add("tencent files");
+    if (lower.find("钉钉") != std::string::npos || lower.find("dingtalk") != std::string::npos)
+        add("dingtalk");
+    if (lower.find("飞书") != std::string::npos || lower.find("feishu") != std::string::npos || lower.find("lark") != std::string::npos)
+        add("feishu");
+    if (lower.find("网易云音乐") != std::string::npos || lower.find("cloudmusic") != std::string::npos)
+        add("cloudmusic");
+    if (lower.find("百度网盘") != std::string::npos || lower.find("baidunetdisk") != std::string::npos)
+        add("baidunetdisk");
+    if (lower.find("迅雷") != std::string::npos || lower.find("thunder") != std::string::npos)
+        add("thunder");
+    return out;
+}
+
 bool systemPath(const std::string& path)
 {
     const std::string lower = finder::lowerAscii(path);
@@ -1224,6 +1255,31 @@ private:
                 if (r["complete"].isBool() && !r["complete"].toBool(true))
                     out.incomplete = true;
                 ++extra;
+            }
+        }
+
+        // The file index stores 微信 under WeChat Files; a Chinese-only query
+        // with a date filter otherwise comes back empty.
+        if (!out.denied && !usable(plan, out)) {
+            for (const std::string& alias : appFolderAliases(plan.text)) {
+                std::string query = quoteWord(alias);
+                if (!filterText.empty())
+                    query += " " + filterText;
+                if (!plan.folder.empty()) {
+                    const std::string folder = folderTerm(plan.folder);
+                    if (!folder.empty())
+                        query = quoteWord(folder) + " " + query;
+                }
+                const Json r = tool("search_files", Json::Object {{"query", query}, {"limit", 100}, {"sort", "modified"}});
+                ++out.calls;
+                logTool("search_files", query, r);
+                if (r.has("error")) {
+                    fail("search_files", r, out);
+                    continue;
+                }
+                absorb(r, "search_files", query, false, 2, {}, out);
+                if (usable(plan, out))
+                    break;
             }
         }
 
