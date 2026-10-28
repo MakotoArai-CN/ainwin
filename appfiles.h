@@ -97,15 +97,18 @@ inline std::wstring expandPath(const std::string& path)
     return wide;
 }
 
-inline bool skippedAppDir(const std::string& name)
+inline bool skippedAppDir(const std::string& name, const std::string& source)
 {
     const std::string lower = lowerAscii(name);
     static const char* const blocked[] = {"cache", "customemotion", "emoji", "thumb", "temp", "backup",
         "config", "db", "sns", "favorite", "general", "avatar", "head", "sticker", "log", "logs",
         "crash", "nt_db", "nt_temp", "mmkv", "msf", "online status", "unitedconfig", "hyperionlocalcache"};
     for (const char* part : blocked) {
-        if (lower == part)
+        if (lower == part) {
+            if (lower == "cache" && (source == "wxwork" || source == "dingtalk" || source == "feishu"))
+                return false;
             return true;
+        }
     }
     return false;
 }
@@ -166,7 +169,7 @@ inline void scanAppRoot(const std::wstring& dir, const std::string& source, std:
             continue;
         const std::wstring full = dir + L"\\" + name;
         if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-            if (!skippedAppDir(utf8Of(name)))
+            if (!skippedAppDir(utf8Of(name), source))
                 scanAppRoot(full, source, out, depth + 1);
             continue;
         }
