@@ -17,9 +17,12 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <ctime>
+#include <fstream>
 #include <map>
 #include <set>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -509,6 +512,7 @@ struct SearchOutcome {
     std::set<std::string> phrasePaths;
     bool typeRelaxed = false;
     bool mediaFallback = false;
+    bool archiveFallback = false;
     int calls = 0;
     long long elapsedMs = 0;
 };
@@ -1075,6 +1079,7 @@ private:
         into.phraseHits = static_cast<int>(into.phrasePaths.size());
         into.typeRelaxed = into.typeRelaxed || from.typeRelaxed;
         into.mediaFallback = into.mediaFallback || from.mediaFallback;
+        into.archiveFallback = into.archiveFallback || from.archiveFallback;
     }
 
     SearchOutcome search(const Plan& plan, bool allowRelax = true)
@@ -1281,6 +1286,34 @@ private:
                 else {
                     absorb(r, "search_files", query, false, 1, {}, out);
                     out.mediaFallback = true;
+                }
+            }
+        }
+
+        // Archives often have generic names ("backup.zip", "微信文件夹.zip").
+        // If the name words do not hit, list archives in the requested time
+        // and folder instead of returning nothing.
+        if (!out.denied && !listing && !usable(plan, out) && plan.type.id == "archives" && !plan.type.folders) {
+            std::vector<std::string> exts = plan.type.extensions;
+            if (exts.size() > 64)
+                exts.resize(64);
+            if (!exts.empty()) {
+                std::string query = "ext:" + join(exts, ",");
+                if (!filterText.empty())
+                    query += " " + filterText;
+                if (!plan.folder.empty()) {
+                    const std::string folder = folderTerm(plan.folder);
+                    if (!folder.empty())
+                        query = quoteWord(folder) + " " + query;
+                }
+                const Json r = tool("search_files", Json::Object {{"query", query}, {"limit", 100}, {"sort", "modified"}});
+                ++out.calls;
+                logTool("search_files", query, r);
+                if (r.has("error"))
+                    fail("search_files", r, out);
+                else {
+                    absorb(r, "search_files", query, false, 1, {}, out);
+                    out.archiveFallback = true;
                 }
             }
         }
@@ -1832,6 +1865,15 @@ private:
             items.push_back(std::move(item));
         }
 
+        if (listing && kept.size() > static_cast<std::size_t>(limit)) {
+            const std::size_t more = kept.size() - static_cast<std::size_t>(limit);
+            items.push_back(Item("note-more", zh ? "还有 " + std::to_string(more) + " 条" : std::to_string(more) + " more",
+                                     zh ? "设置 → 最多显示几条，可以调到 30；也可以加文件名、文件夹或时间缩小范围"
+                                        : "Raise Settings → Most results (up to 30), or add a name, folder or time")
+                                 .withIcon("glyph:U+E7BA")
+                                 .invalid());
+        }
+
         // What went wrong or was left out, after the rows that did work.
         if (items.empty()) {
             if (out.denied) {
@@ -1896,6 +1938,11 @@ private:
                                          zh ? "图片/视频里没有可检索的文字，没能按内容判断" : "Pictures and videos have no text to compare")
                                      .withIcon("glyph:U+E7BA")
                                      .invalid());
+            else if (out.archiveFallback)
+                items.push_back(Item("note-archive", zh ? "按类型和时间列出压缩包" : "Archives listed by type and date",
+                                         zh ? "文件名没有匹配到原词，列的是该时间的压缩包" : "The name words missed; these are archives from that time")
+                                     .withIcon("glyph:U+E7BA")
+                                     .invalid());
         }
         if (listing && noise > 0)
             items.push_back(Item("note-noise", zh ? "已略过系统文件夹和开发缓存" : "System folders and build caches are left out",
@@ -1926,8 +1973,181 @@ private:
 
 } // namespace
 
+// Developer benchmark: retrieval accuracy and encoding speed for one model.
+// Usage: ainwin.exe --bench <modelDir> <dataset.json>
+static int runBench(const std::string& modelDir, const std::string& datasetPath)
+{
+    std::ifstream in(datasetPath, std::ios::binary);
+    if (!in) {
+        std::printf("{\"error\":\"cannot open dataset\"}\n");
+        return 1;
+    }
+    std::stringstream buffer;
+    buffer << in.rdbuf();
+    const auto parsed = winshun::Json::parse(buffer.str());
+    if (!parsed) {
+        std::printf("{\"error\":\"bad dataset json\"}\n");
+        return 1;
+    }
+    const winshun::Json& dataset = *parsed;
+    const auto docs = dataset["docs"].toArray();
+    const auto queries = dataset["queries"].toArray();
+    if (docs.empty() || queries.empty()) {
+        std::printf("{\"error\":\"dataset needs docs and queries\"}\n");
+        return 1;
+    }
+
+    std::vector<std::string> docTexts;
+    std::vector<std::string> docIds;
+    for (const auto& doc : docs) {
+        docIds.push_back(doc["id"].toString());
+        docTexts.push_back(doc["text"].toString());
+    }
+    std::vector<std::string> queryTexts;
+    std::vector<std::vector<std::string>> relevant;
+    for (const auto& query : queries) {
+        queryTexts.push_back(query["text"].toString());
+        std::vector<std::string> ids;
+        for (const auto& id : query["relevant"].toArray())
+            ids.push_back(id.toString());
+        relevant.push_back(ids);
+    }
+
+    int threads = 4;
+    if (const char* value = std::getenv("AINWIN_THREADS")) {
+        const int n = std::atoi(value);
+        if (n >= 1 && n <= 8)
+            threads = n;
+    }
+    const int maxLength = 128;
+    finder::Embedder embedder;
+    const auto allStart = std::chrono::steady_clock::now();
+    const auto loadStart = std::chrono::steady_clock::now();
+    if (!embedder.load(modelDir, threads, maxLength)) {
+        std::printf("{\"error\":\"%s\"}\n", embedder.error().c_str());
+        return 1;
+    }
+    const long long loadMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - loadStart).count();
+
+    std::vector<std::vector<float>> docVectors;
+    std::vector<std::vector<float>> queryVectors;
+    std::string error;
+    const auto docsStart = std::chrono::steady_clock::now();
+    if (!embedder.embed(docTexts, false, docVectors, error)) {
+        std::printf("{\"error\":\"%s\"}\n", error.c_str());
+        return 1;
+    }
+    const long long docsMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - docsStart).count();
+
+    const auto queriesStart = std::chrono::steady_clock::now();
+    if (!embedder.embed(queryTexts, true, queryVectors, error)) {
+        std::printf("{\"error\":\"%s\"}\n", error.c_str());
+        return 1;
+    }
+    const long long queriesMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - queriesStart).count();
+
+    std::unordered_map<std::string, std::size_t> docIndex;
+    for (std::size_t i = 0; i < docIds.size(); ++i)
+        docIndex[docIds[i]] = i;
+
+    const auto rankStart = std::chrono::steady_clock::now();
+    double sumRecall1 = 0;
+    double sumRecall5 = 0;
+    double sumRecall10 = 0;
+    double sumMrr = 0;
+    double sumNdcg = 0;
+    double sumTop1 = 0;
+    int counted = 0;
+    winshun::Json::Array perQuery;
+    for (std::size_t qi = 0; qi < queryTexts.size(); ++qi) {
+        std::vector<std::pair<float, std::size_t>> scored;
+        scored.reserve(docVectors.size());
+        for (std::size_t di = 0; di < docVectors.size(); ++di)
+            scored.emplace_back(finder::Embedder::cosine(queryVectors[qi], docVectors[di]), di);
+        std::sort(scored.begin(), scored.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
+
+        std::set<std::size_t> wanted;
+        for (const std::string& id : relevant[qi]) {
+            const auto found = docIndex.find(id);
+            if (found != docIndex.end())
+                wanted.insert(found->second);
+        }
+        if (wanted.empty())
+            continue;
+
+        int firstRank = 0;
+        for (int rank = 1; rank <= 10 && rank <= static_cast<int>(scored.size()); ++rank) {
+            if (wanted.count(scored[rank - 1].second)) {
+                firstRank = rank;
+                break;
+            }
+        }
+        int hits1 = 0;
+        int hits5 = 0;
+        int hits10 = 0;
+        for (int rank = 1; rank <= 10 && rank <= static_cast<int>(scored.size()); ++rank) {
+            if (!wanted.count(scored[rank - 1].second))
+                continue;
+            if (rank <= 1) ++hits1;
+            if (rank <= 5) ++hits5;
+            if (rank <= 10) ++hits10;
+        }
+        double dcg = 0;
+        for (int rank = 1; rank <= 10 && rank <= static_cast<int>(scored.size()); ++rank) {
+            if (wanted.count(scored[rank - 1].second))
+                dcg += 1.0 / std::log2(static_cast<double>(rank) + 1.0);
+        }
+        double idcg = 0;
+        const int ideal = std::min<int>(10, static_cast<int>(wanted.size()));
+        for (int rank = 1; rank <= ideal; ++rank)
+            idcg += 1.0 / std::log2(static_cast<double>(rank) + 1.0);
+
+        sumRecall1 += static_cast<double>(hits1) / wanted.size();
+        sumRecall5 += static_cast<double>(hits5) / wanted.size();
+        sumRecall10 += static_cast<double>(hits10) / wanted.size();
+        sumMrr += firstRank > 0 ? 1.0 / firstRank : 0.0;
+        sumNdcg += idcg > 0 ? dcg / idcg : 0.0;
+        sumTop1 += firstRank == 1 ? 1.0 : 0.0;
+        ++counted;
+        perQuery.push_back(winshun::Json::Object {{"query", queryTexts[qi]}, {"first_rank", firstRank},
+            {"top1", scored.empty() ? "" : docIds[scored[0].second]},
+            {"top1_score", scored.empty() ? 0.0 : scored[0].first}});
+    }
+    const long long rankMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - rankStart).count();
+    const long long totalMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - allStart).count();
+    const double n = counted > 0 ? static_cast<double>(counted) : 1.0;
+
+    winshun::Json out = winshun::Json::Object {
+        {"model", embedder.modelName()},
+        {"dim", embedder.dimension()},
+        {"threads", threads},
+        {"max_length", maxLength},
+        {"docs", static_cast<long long>(docTexts.size())},
+        {"queries", static_cast<long long>(counted)},
+        {"load_ms", loadMs},
+        {"docs_ms", docsMs},
+        {"queries_ms", queriesMs},
+        {"rank_ms", rankMs},
+        {"total_ms", totalMs},
+        {"query_ms_avg", static_cast<double>(queriesMs) / n},
+        {"doc_ms_avg", static_cast<double>(docsMs) / static_cast<double>(docTexts.size())},
+        {"accuracy@1", sumTop1 / n},
+        {"recall@1", sumRecall1 / n},
+        {"recall@5", sumRecall5 / n},
+        {"recall@10", sumRecall10 / n},
+        {"mrr@10", sumMrr / n},
+        {"ndcg@10", sumNdcg / n},
+        {"per_query", perQuery},
+    };
+    std::printf("%s\n", out.dump().c_str());
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
+    if (argc >= 4 && finder::argToUtf8(argv[1]) == "--bench")
+        return runBench(finder::argToUtf8(argv[2]), finder::argToUtf8(argv[3]));
+
     // Developer aid: check the local encoder without Win顺.
     if (argc >= 3 && finder::argToUtf8(argv[1]) == "--embed") {
         std::string modelDir = "models\\bge-small-zh-v1.5-int8";

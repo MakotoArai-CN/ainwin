@@ -7,6 +7,7 @@
 #include "lexicon.h"
 
 #include <cstdint>
+#include <cstring>
 #include <ctime>
 #include <set>
 #include <string>
@@ -619,6 +620,12 @@ inline bool parseExplicitType(std::string& work, TypeFilter& out)
 
 inline bool parseType(std::string& work, TypeFilter& out)
 {
+    struct Match {
+        const TypeWord* word;
+        std::string term;
+        std::size_t at;
+    };
+    std::vector<Match> matches;
     for (const TypeWord& tw : typeWords()) {
         std::vector<std::string> terms = splitAny(tw.terms, ",");
         std::sort(terms.begin(), terms.end(), [](const std::string& a, const std::string& b) { return a.size() > b.size(); });
@@ -626,17 +633,65 @@ inline bool parseType(std::string& work, TypeFilter& out)
             const std::size_t at = findTerm(work, term);
             if (at == std::string::npos)
                 continue;
-            out.set = true;
-            out.id = tw.id;
-            out.label = tw.label;
-            out.folders = tw.folders;
-            out.extensions = splitAny(tw.extensions, ",");
-            out.matched = tw.keepTerm ? term : std::string();
-            eraseAt(work, at, term.size());
-            return true;
+            matches.push_back(Match {&tw, term, at});
+            break;
         }
     }
-    return false;
+    if (matches.empty())
+        return false;
+    std::sort(matches.begin(), matches.end(), [](const Match& a, const Match& b) {
+        if (a.at != b.at)
+            return a.at < b.at;
+        return a.term.size() < b.term.size();
+    });
+
+    // The head noun wins: 微信文件夹的压缩包 is an archive, not a folder.
+    // Two exceptions: a concrete format beats the generic word 文档, and
+    // sql/python/shell before 脚本 is the real format, not generic code.
+    std::size_t primary = matches.size() - 1;
+    const Match& tail = matches.back();
+    if (std::strcmp(tail.word->id, "documents") == 0) {
+        for (std::size_t i = matches.size() - 1; i-- > 0;) {
+            if (std::strcmp(matches[i].word->id, "documents") != 0) {
+                primary = i;
+                break;
+            }
+        }
+    } else if (std::strcmp(tail.word->id, "code") == 0
+        && (tail.term == "脚本" || tail.term == "代码" || tail.term == "源码" || tail.term == "源代码"
+            || tail.term == "script" || tail.term == "source" || tail.term == "code")) {
+        for (std::size_t i = matches.size() - 1; i-- > 0;) {
+            if (std::strcmp(matches[i].word->id, "code") != 0 && std::strcmp(matches[i].word->id, "documents") != 0) {
+                primary = i;
+                break;
+            }
+        }
+    }
+
+    // Remove every type word, merging overlaps such as sql脚本 + 脚本.
+    std::vector<std::pair<std::size_t, std::size_t>> spans;
+    for (const Match& match : matches)
+        spans.emplace_back(match.at, match.at + match.term.size());
+    std::sort(spans.begin(), spans.end());
+    std::vector<std::pair<std::size_t, std::size_t>> merged;
+    for (const auto& span : spans) {
+        if (!merged.empty() && span.first <= merged.back().second) {
+            merged.back().second = std::max(merged.back().second, span.second);
+        } else {
+            merged.push_back(span);
+        }
+    }
+    for (std::size_t i = merged.size(); i-- > 0;)
+        eraseAt(work, merged[i].first, merged[i].second - merged[i].first);
+
+    const TypeWord* chosen = matches[primary].word;
+    out.set = true;
+    out.id = chosen->id;
+    out.label = chosen->label;
+    out.folders = chosen->folders;
+    out.extensions = splitAny(chosen->extensions, ",");
+    out.matched = chosen->keepTerm ? matches[primary].term : std::string();
+    return true;
 }
 
 inline bool parseExtraType(std::string& work, TypeFilter& out, const std::string& spec)
@@ -956,7 +1011,7 @@ inline Plan parsePlan(const std::string& text, const std::string& extraTypes = {
     // Generic phrases that are not worth searching.
     static const char* const filler[] = {"帮我找一下", "帮我找", "帮忙找", "找一下", "搜索一下", "查一下", "看一下",
         "我想找", "我想要", "需要找", "有没有", "关于", "有关", "相关", "里面", "里提到", "中提到", "提到",
-        "写到", "写到过", "说的是", "讲的是", "那份", "这份", "内容", "文件名", "文件", "东西", "资料", "材料", "扫描件"};
+        "写到", "写到过", "说的是", "讲的是", "那份", "这份", "内容", "文件名", "文件", "东西", "资料", "材料", "扫描件", "里的"};
     for (const char* phrase : filler)
         work = replaceAll(work, phrase, " ");
     work = replaceAll(work, "的", " ");
