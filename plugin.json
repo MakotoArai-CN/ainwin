@@ -3,13 +3,13 @@
   "manifest": 1,
   "id": "ainwin",
   "name": {"zh": "意图找文件", "en": "Find by description"},
-  "version": "0.5.0",
-  "description": {"zh": "用一句话描述要找的文件或系统设置：拆解概念、时间、类型、位置和大小，用本机 INT8 向量模型按意思重排；覆盖常见与冷门文件类型，支持显式扩展名和自定义行业类型。完全离线，不联网。", "en": "Describe the file or Windows setting you want; it parses concepts, time, type, place and size, then reranks with a local INT8 model. Common and rare types, explicit extensions, custom industry types and a built-in Windows settings catalog. Fully offline."},
+  "version": "0.6.0",
+  "description": {"zh": "用一句话描述要找的文件、应用或系统设置：拆解概念、时间、类型、位置和大小，用本机 INT8 向量模型按意思重排；覆盖常见与冷门文件类型，支持显式扩展名和自定义行业类型。完全离线，不联网。", "en": "Describe the file or Windows setting you want; it parses concepts, time, type, place and size, then reranks with a local INT8 model. Common and rare types, explicit extensions, custom industry types and a built-in Windows settings catalog. Fully offline."},
   "author": "MakotoArai-CN",
   "license": "MIT",
   "minWinShun": "0.14.0",
   "runtime": {"mode": "resident", "program": "ainwin.exe", "sandbox": "normal", "timeoutMs": 10000, "idleExitSec": 0, "memoryMB": 1024, "start": "eager"},
-  "permissions": ["winshun:search", "winshun:open"],
+  "permissions": ["winshun:search", "winshun:open", {"files:read": ["%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs", "%PROGRAMDATA%\\Microsoft\\Windows\\Start Menu\\Programs"]}],
   "commands": [
     {
       "id": "find",
@@ -23,7 +23,7 @@
         {"id": "copy", "title": {"zh": "复制路径", "en": "Copy path"}, "key": "Ctrl+Enter"},
         {"id": "reveal", "title": {"zh": "在文件夹中显示", "en": "Show in folder"}, "key": "Shift+Enter"}
       ],
-      "ai": {"description": "Find the user's local files by a natural-language description (Chinese or English), e.g. \"last year's travel expense rules\" or \"猫打针的记录\". It understands common concepts, time ranges, file types, folders and sizes, searches WinShun's file and content indexes, then reranks the passages with a local embedding model on this PC. Returns files and folders with path, why they matched and a content snippet. It is read-only and never opens files; the user opens a result."}
+      "ai": {"description": "Find local files, installed apps or common Windows settings by a natural-language description (Chinese or English), e.g. \"last year's travel expense rules\" or \"猫打针的记录\". It understands common concepts, time ranges, file types, folders and sizes, searches WinShun's file and content indexes, then reranks the passages with a local embedding model on this PC. Returns files, folders, apps and settings with path, why they matched and a content snippet. It is read-only and never opens files; the user opens a result."}
     }
   ],
   "settings": [

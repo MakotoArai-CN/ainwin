@@ -70,6 +70,33 @@
 
 类型是**硬过滤**，但仍会和“概念/文件名/内容”一起排序；`找 数据库脚本` 会收窄到 `.sql`，`找 数据库文件` 是 `.db/.sqlite/...`，两者不会混。格式不在时，文档类（PDF/Word/PPT/表格/图片等）会自动放宽类型并提示；代码/数据库这类格式（`.cpp`、`.sql`、`.db`）不会拿别的格式冒充。
 
+## 应用也能找
+
+0.6.0 起会从两个开始菜单目录读取已安装应用的快捷方式：
+
+- `%APPDATA%\Microsoft\Windows\Start Menu\Programs`
+- `%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs`
+
+所以不需要把每个软件名写死：只要软件建了开始菜单快捷方式，按它的名字就能搜到。内置目录另外补了约 170 条常用软件的中英文别名和功能分类，用于“我不知道它叫什么”的场景：
+
+```
+找 微信
+找 压缩软件
+找 浏览器
+找 视频剪辑
+找 Python
+找 计算器
+找 截图
+```
+
+命中的结果标为“应用 · 开始菜单”或“应用 · Windows 内置”，Enter 启动，Ctrl+Enter 复制快捷方式路径。
+
+限制：
+
+- 只认开始菜单快捷方式；绿色版、没有建快捷方式的软件、部分 Microsoft Store 应用可能找不到；
+- 不读卸载注册表，不枚举进程，不读应用数据；
+- “视频剪辑”“压缩软件”这类功能词只会返回**已安装**的匹配项，不会列一堆没装的软件。
+
 ## 系统设置也能找
 
 “环境变量”不是文件，之前只搜文件索引，所以找不到；这不是权限问题。`winshun:search` 只读 Win顺 的文件/内容索引，插件没有枚举注册表或 Windows 设置页的权限。
@@ -160,14 +187,15 @@
 
 ## 权限
 
-只申请两项：
+只申请三项：
 
 | 权限 | 原因 |
 |---|---|
 | `winshun:search` | 调用 Win顺 的 `search_files` / `search_content`，读索引里的路径、时间、大小和文字片段；插件不遍历磁盘。 |
-| `winshun:open` | 只在 **Shift+Enter** 时调用 `show_in_folder` 定位结果。 |
+| `winshun:open` | 打开用户选中的文件/设置页/应用，或只在 **Shift+Enter** 时调用 `show_in_folder` 定位结果。 |
+| `files:read`（限两个开始菜单目录） | 只读 `%APPDATA%\Microsoft\Windows\Start Menu\Programs` 和 `%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs` 下的 `.lnk` / `.appref-ms`，用来发现已安装应用；不读其他文件。 |
 
-没有申请：`network`、`clipboard:read`、`clipboard:write`、`processes`、`files:write`、`files:read`、`winshun:content`、`ui`。模型和 DLL 是插件自己的资源，从插件目录读取；不读用户文件。
+没有申请：`network`、`clipboard:read`、`clipboard:write`、`processes`、`files:write`、`winshun:content`、`ui`。模型和 DLL 是插件自己的资源，从插件目录读取。
 
 `normal` 沙箱不是强制隔离（Win顺 只能对 `winshun:*`、进程、剪贴板做作业限制）；插件代码本身不联网、不写用户目录、不启动进程。
 

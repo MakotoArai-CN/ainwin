@@ -13,6 +13,7 @@
 #include "lexicon.h"
 #include "planner.h"
 #include "settings.h"
+#include "apps.h"
 
 #include <algorithm>
 #include <chrono>
@@ -1759,6 +1760,18 @@ private:
             }
         }
 
+        Items appItems;
+        if (settingsItems.empty() && !plan.type.set && !sizeQuery && !plan.time.set && plan.folder.empty()) {
+            for (const finder::AppHit& hit : finder::matchApps(plan.text)) {
+                Item item("a:" + lowerKey(hit.target), hit.title, hit.subtitle);
+                item.withPath(hit.target)
+                    .withIcon("file:" + hit.target)
+                    .withCopy(hit.target)
+                    .withData(Json::Object {{"kind", "app"}, {"target", hit.target}});
+                appItems.push_back(std::move(item));
+            }
+        }
+
         const std::vector<std::string> scope = !plan.folder.empty() ? std::vector<std::string> {plan.folder} : s.folders;
         std::vector<Candidate*> kept;
         int noise = 0;
@@ -1894,6 +1907,8 @@ private:
         }
 
         // What went wrong or was left out, after the rows that did work.
+        if (!appItems.empty())
+            items.insert(items.begin(), appItems.begin(), appItems.end());
         if (!settingsItems.empty())
             items.insert(items.begin(), settingsItems.begin(), settingsItems.end());
         if (items.empty()) {
@@ -2166,6 +2181,12 @@ static int runBench(const std::string& modelDir, const std::string& datasetPath)
 
 int main(int argc, char** argv)
 {
+    if (argc >= 3 && finder::argToUtf8(argv[1]) == "--apps") {
+        const std::string text = finder::argToUtf8(argv[2]);
+        for (const finder::AppHit& hit : finder::matchApps(text, 10))
+            std::printf("%s\t%s\t%s\t%d\n", hit.title.c_str(), hit.subtitle.c_str(), hit.target.c_str(), hit.score);
+        return 0;
+    }
     if (argc >= 3 && finder::argToUtf8(argv[1]) == "--settings") {
         const std::string text = finder::argToUtf8(argv[2]);
         for (const finder::SettingsEntry* entry : finder::matchSettings(text, 10))
