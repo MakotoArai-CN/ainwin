@@ -3,13 +3,13 @@
   "manifest": 1,
   "id": "ainwin",
   "name": {"zh": "意图找文件", "en": "Find by description"},
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": {"zh": "用一句话描述要找的文件或系统设置：拆解概念、时间、类型、位置和大小，用本机 INT8 向量模型按意思重排；覆盖常见与冷门文件类型，支持显式扩展名和自定义行业类型。完全离线，不联网。", "en": "Describe the file or Windows setting you want; it parses concepts, time, type, place and size, then reranks with a local INT8 model. Common and rare types, explicit extensions, custom industry types and a built-in Windows settings catalog. Fully offline."},
   "author": "MakotoArai-CN",
   "license": "MIT",
   "minWinShun": "0.14.0",
   "runtime": {"mode": "resident", "program": "ainwin.exe", "sandbox": "normal", "timeoutMs": 10000, "idleExitSec": 0, "memoryMB": 1024, "start": "eager"},
-  "permissions": ["winshun:search", "winshun:open"],
+  "permissions": ["winshun:search", "winshun:open", {"files:read": ["%USERPROFILE%\\Documents\\WeChat Files", "%USERPROFILE%\\Documents\\xwechat_files"]}],
   "commands": [
     {
       "id": "find",
@@ -42,7 +42,8 @@
     {"key": "modelDir", "type": "text", "title": {"zh": "自定义模型文件夹", "en": "Custom model folder"}, "hint": {"zh": "仅“自定义”档使用；相对插件目录，里面要有 model_quantized.onnx、vocab.txt 和 onnxruntime.dll", "en": "Only for the Custom preset; relative to the plugin folder: model_quantized.onnx, vocab.txt and onnxruntime.dll"}, "default": "models\\bge-small-zh-v1.5-int8"},
     {"key": "threads", "type": "number", "title": {"zh": "模型线程数", "en": "Model threads"}, "hint": {"zh": "1 到 8，默认 4；性能好的机器可以调高", "en": "1 to 8, default 4; higher on a fast machine"}, "default": 4},
     {"key": "maxLength", "type": "number", "title": {"zh": "每段最多几个词元", "en": "Tokens per passage"}, "hint": {"zh": "64 到 384，默认 128；越大越准也越慢", "en": "64 to 384, default 128; more is more accurate and slower"}, "default": 128},
-    {"key": "extraTypes", "type": "text", "title": {"zh": "自定义类型", "en": "Your own types"}, "hint": {"zh": "格式：词=扩展名;词=扩展名。例：点云=las,laz;标本=svs,ndpi;注塑=mold,stp。不认识的行业格式写在这里，或直接用 *.扩展名", "en": "Format: word=ext;word=ext. e.g. pointcloud=las,laz; or just type *.ext"}, "default": ""}
+    {"key": "extraTypes", "type": "text", "title": {"zh": "自定义类型", "en": "Your own types"}, "hint": {"zh": "格式：词=扩展名;词=扩展名。例：点云=las,laz;标本=svs,ndpi;注塑=mold,stp。不认识的行业格式写在这里，或直接用 *.扩展名", "en": "Format: word=ext;word=ext. e.g. pointcloud=las,laz; or just type *.ext"}, "default": ""},
+    {"key": "wechatDirs", "type": "text", "title": {"zh": "微信文件目录", "en": "WeChat file folders"}, "hint": {"zh": "只搜传输文件；默认 Documents\\WeChat Files 和 xwechat_files，用分号隔开", "en": "Transferred files only; defaults to Documents\\WeChat Files and xwechat_files, separated by semicolons"}, "default": ""}
   ],
   "ai": {"expose": true}
 }

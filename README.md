@@ -70,6 +70,27 @@
 
 类型是**硬过滤**，但仍会和“概念/文件名/内容”一起排序；`找 数据库脚本` 会收窄到 `.sql`，`找 数据库文件` 是 `.db/.sqlite/...`，两者不会混。格式不在时，文档类（PDF/Word/PPT/表格/图片等）会自动放宽类型并提示；代码/数据库这类格式（`.cpp`、`.sql`、`.db`）不会拿别的格式冒充。
 
+## 微信传输的文件
+
+`微信文件` 默认指微信**收发的文件**，不是微信客户端自己的配置、缓存或表情。
+
+插件只扫 `WeChat Files` / `xwechat_files` 里的传输目录：
+
+```
+找 昨天的微信word文件
+找 微信excel
+找 微信图片
+找 weixin视频
+找 微信压缩包
+```
+
+- Word/Excel/PDF/压缩包按原始扩展名识别；
+- 图片和视频按传输目录里的原文件识别；
+- 微信自己的 `config`、`Cache`、`CustomEmotion`、`Thumb`、`Temp` 不进入结果；
+- 加密的 `.dat` 图片/视频会跳过，避免给出打不开的文件。
+
+需要只读 `Documents\WeChat Files` 和 `Documents\xwechat_files` 的 `files:read`；目录可用「微信文件目录」设置改。没有应用搜索。
+
 ## 系统设置也能找
 
 “环境变量”不是文件，之前只搜文件索引，所以找不到；这不是权限问题。`winshun:search` 只读 Win顺 的文件/内容索引，插件没有枚举注册表或 Windows 设置页的权限。
@@ -103,7 +124,7 @@
 
 目录覆盖的是常见设置，不是全部注册表开关；不在目录里的功能仍按文件名/内容搜索，不会假装能打开。
 
-应用数据目录常是英文路径：`微信` 会额外探测 `WeChat Files`，`QQ` 探测 `Tencent Files`。命中的可能是应用数据文件夹；里面的文件仍按普通文件索引搜索。
+
 
 ## 它怎么理解“意思”
 
@@ -168,14 +189,15 @@
 
 ## 权限
 
-只申请两项：
+只申请三项：
 
 | 权限 | 原因 |
 |---|---|
 | `winshun:search` | 调用 Win顺 的 `search_files` / `search_content`，读索引里的路径、时间、大小和文字片段；插件不遍历磁盘。 |
-| `winshun:open` | 只在 **Shift+Enter** 时调用 `show_in_folder` 定位结果。 |
+| `winshun:open` | 打开用户选中的文件/设置页，或只在 **Shift+Enter** 时调用 `show_in_folder` 定位结果。 |
+| `files:read`（限微信目录） | 只读 `Documents\WeChat Files` 和 `Documents\xwechat_files` 下的传输文件，用来找微信收发的 Word/Excel/图片/视频；不读其他文件。 |
 
-没有申请：`network`、`clipboard:read`、`clipboard:write`、`processes`、`files:write`、`files:read`、`winshun:content`、`ui`。模型和 DLL 是插件自己的资源，从插件目录读取；不读用户文件。
+没有申请：`network`、`clipboard:read`、`clipboard:write`、`processes`、`files:write`、`winshun:content`、`ui`。模型和 DLL 是插件自己的资源，从插件目录读取。
 
 `normal` 沙箱不是强制隔离（Win顺 只能对 `winshun:*`、进程、剪贴板做作业限制）；插件代码本身不联网、不写用户目录、不启动进程。
 

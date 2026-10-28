@@ -13,6 +13,7 @@
 #include "lexicon.h"
 #include "planner.h"
 #include "settings.h"
+#include "wechat.h"
 
 #include <algorithm>
 #include <chrono>
@@ -128,35 +129,6 @@ std::string folderTerm(const std::string& folder)
 
 // App data folders often have English names even on a Chinese system:
 // 微信 stores under WeChat Files, QQ under Tencent Files, etc. Searching the
-// Chinese word alone finds nothing in the file index, so probe these aliases.
-std::vector<std::string> appFolderAliases(const std::string& text)
-{
-    const std::string lower = finder::lowerAscii(text);
-    std::vector<std::string> out;
-    const auto add = [&](const char* alias) {
-        if (std::find(out.begin(), out.end(), alias) == out.end())
-            out.emplace_back(alias);
-    };
-    if (lower.find("企业微信") != std::string::npos || lower.find("wxwork") != std::string::npos) {
-        add("wxwork");
-    } else if (lower.find("微信") != std::string::npos || lower.find("wechat") != std::string::npos) {
-        add("wechat");
-    }
-    if (lower.find("qq") != std::string::npos || lower.find("腾讯") != std::string::npos)
-        add("tencent files");
-    if (lower.find("钉钉") != std::string::npos || lower.find("dingtalk") != std::string::npos)
-        add("dingtalk");
-    if (lower.find("飞书") != std::string::npos || lower.find("feishu") != std::string::npos || lower.find("lark") != std::string::npos)
-        add("feishu");
-    if (lower.find("网易云音乐") != std::string::npos || lower.find("cloudmusic") != std::string::npos)
-        add("cloudmusic");
-    if (lower.find("百度网盘") != std::string::npos || lower.find("baidunetdisk") != std::string::npos)
-        add("baidunetdisk");
-    if (lower.find("迅雷") != std::string::npos || lower.find("thunder") != std::string::npos)
-        add("thunder");
-    return out;
-}
-
 bool systemPath(const std::string& path)
 {
     const std::string lower = finder::lowerAscii(path);
@@ -651,6 +623,29 @@ public:
         if (const auto it = m_cache.find(key); it != m_cache.end() && now - it->second.at < kCacheSeconds)
             return it->second.items;
 
+        // WeChat's transferred files live outside the normal document index and
+        // are mostly hash-named. Scan only FileStorage/msg subtrees, not the
+        // client's config, cache or emoji data.
+        if (finder::isWeChatQuery(text) && plan.folder.empty() && !plan.type.folders) {
+            const Settings s = currentSettings();
+            const std::vector<finder::WeChatFile> found = finder::findWeChatFiles(plan, s.wechatDirs, s.maxResults);
+            if (!found.empty()) {
+                Items items;
+                for (const finder::WeChatFile& file : found) {
+                    Item item("w:" + lowerKey(file.path), file.name,
+                        (chinese() ? "微信传输 · " : "WeChat transfer · ") + formatWhen(file.modified) + " · " + humanSize(file.size));
+                    item.withPath(file.path).withIcon("file:" + file.path).withCopy(file.path)
+                        .withData(Json::Object {{"kind", "file"}, {"path", file.path}, {"source", "wechat"}});
+                    items.push_back(std::move(item));
+                }
+                winshun::debug("[find] wechat files=" + std::to_string(items.size()));
+                if (m_cache.size() > 24)
+                    m_cache.clear();
+                m_cache[key] = CacheEntry {now, items};
+                return items;
+            }
+        }
+
         progress(q.queryId, chinese() ? "正在按描述查找…" : "Looking by what you described…");
         SearchOutcome outcome = search(plan);
 
@@ -777,6 +772,7 @@ private:
         int threads = 4;
         int maxLength = 128;
         std::string extraTypes;
+        std::string wechatDirs;
     };
 
     Settings currentSettings() const
@@ -796,6 +792,7 @@ private:
         s.threads = std::max(1, std::min(8, static_cast<int>(settings()["threads"].toInt(4))));
         s.maxLength = std::max(64, std::min(384, static_cast<int>(settings()["maxLength"].toInt(128))));
         s.extraTypes = settings()["extraTypes"].toString();
+        s.wechatDirs = settings()["wechatDirs"].toString();
         std::string list = settings()["folders"].toString();
         std::replace(list.begin(), list.end(), '\n', ';');
         for (std::string folder : finder::splitAny(list, ";")) {
@@ -818,7 +815,7 @@ private:
             + "|" + (settings()["useModel"].toBool(true) ? "1" : "0") + "|" + settings()["modelPreset"].toString()
             + "|" + settings()["device"].toString() + "|" + settings()["modelDir"].toString() + "|"
             + std::to_string(settings()["threads"].toInt(4)) + "|" + std::to_string(settings()["maxLength"].toInt(128))
-            + "|" + settings()["extraTypes"].toString();
+            + "|" + settings()["extraTypes"].toString() + "|" + settings()["wechatDirs"].toString();
     }
 
     static bool dirExists(const std::string& dir)
@@ -1255,31 +1252,6 @@ private:
                 if (r["complete"].isBool() && !r["complete"].toBool(true))
                     out.incomplete = true;
                 ++extra;
-            }
-        }
-
-        // The file index stores 微信 under WeChat Files; a Chinese-only query
-        // with a date filter otherwise comes back empty.
-        if (!out.denied && !usable(plan, out)) {
-            for (const std::string& alias : appFolderAliases(plan.text)) {
-                std::string query = quoteWord(alias);
-                if (!filterText.empty())
-                    query += " " + filterText;
-                if (!plan.folder.empty()) {
-                    const std::string folder = folderTerm(plan.folder);
-                    if (!folder.empty())
-                        query = quoteWord(folder) + " " + query;
-                }
-                const Json r = tool("search_files", Json::Object {{"query", query}, {"limit", 100}, {"sort", "modified"}});
-                ++out.calls;
-                logTool("search_files", query, r);
-                if (r.has("error")) {
-                    fail("search_files", r, out);
-                    continue;
-                }
-                absorb(r, "search_files", query, false, 2, {}, out);
-                if (usable(plan, out))
-                    break;
             }
         }
 
@@ -2222,6 +2194,14 @@ static int runBench(const std::string& modelDir, const std::string& datasetPath)
 
 int main(int argc, char** argv)
 {
+    if (argc >= 3 && finder::argToUtf8(argv[1]) == "--wechat") {
+        const std::string text = finder::argToUtf8(argv[2]);
+        const finder::Plan plan = finder::parsePlan(text);
+        for (const finder::WeChatFile& file : finder::findWeChatFiles(plan, "", 50))
+            std::printf("%s\t%s\t%s\t%lld\n", file.name.c_str(), formatWhen(file.modified).c_str(),
+                humanSize(file.size).c_str(), file.modified);
+        return 0;
+    }
     if (argc >= 3 && finder::argToUtf8(argv[1]) == "--settings") {
         const std::string text = finder::argToUtf8(argv[2]);
         for (const finder::SettingsEntry* entry : finder::matchSettings(text, 10))
