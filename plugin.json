@@ -3,7 +3,7 @@
   "manifest": 1,
   "id": "ainwin",
   "name": {"zh": "意图找文件", "en": "Find by description"},
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": {"zh": "用一句话描述要找的文件或系统设置：拆解概念、时间、类型、位置和大小，用本机 INT8 向量模型按意思重排；覆盖常见与冷门文件类型，支持显式扩展名和自定义行业类型。完全离线，不联网。", "en": "Describe the file or Windows setting you want; it parses concepts, time, type, place and size, then reranks with a local INT8 model. Common and rare types, explicit extensions, custom industry types and a built-in Windows settings catalog. Fully offline."},
   "author": "MakotoArai-CN",
   "license": "MIT",
