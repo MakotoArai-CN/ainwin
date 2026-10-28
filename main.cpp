@@ -1745,7 +1745,7 @@ private:
         // Windows settings are not files. When the sentence names a known
         // switch/page, put an actionable settings row above the file rows.
         Items settingsItems;
-        if (!sizeQuery && !plan.time.set && plan.folder.empty()) {
+        if (!plan.type.set && !sizeQuery && !plan.time.set && plan.folder.empty()) {
             for (const finder::SettingsEntry* entry : finder::matchSettings(plan.text)) {
                 Item item("s:" + std::string(entry->id), entry->title,
                           std::string(entry->subtitle) + (zh ? " · 系统设置" : " · Windows Settings"));

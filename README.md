@@ -165,9 +165,9 @@
 | 权限 | 原因 |
 |---|---|
 | `winshun:search` | 调用 Win顺 的 `search_files` / `search_content`，读索引里的路径、时间、大小和文字片段；插件不遍历磁盘。 |
-| `winshun:open` | 打开用户选中的文件/设置页，或只在 **Shift+Enter** 时调用 `show_in_folder` 定位结果。 |
+| `winshun:open` | 只在 **Shift+Enter** 时调用 `show_in_folder` 定位结果。 |
 
-没有申请：`network`、`clipboard:read`、`clipboard:write`、`processes`、`files:write`、`files:read`、`winshun:content`、`ui`。模型和 DLL 是插件自己的资源，从插件目录读取。
+没有申请：`network`、`clipboard:read`、`clipboard:write`、`processes`、`files:write`、`files:read`、`winshun:content`、`ui`。模型和 DLL 是插件自己的资源，从插件目录读取；不读用户文件。
 
 `normal` 沙箱不是强制隔离（Win顺 只能对 `winshun:*`、进程、剪贴板做作业限制）；插件代码本身不联网、不写用户目录、不启动进程。
 
@@ -245,9 +245,7 @@ cmake --build build --config Release
 | `找 大于1kb的JavaScript文件` | `ext:js,... size:>1kb`，75 条候选，33 ms | 12 条，包含 `app.js` |
 | `找 大于1kb的可执行文件` | `ext:exe,... size:>1kb`，60 ms | 12 条，含 `VC_redist.x64.exe` |
 | `找 最近半年客户签字的租赁合同扫描件` | 8 次调用，“租赁合同”短语命中，1.48 s | 12 条 |
-| `找 上周开会拍的现场照片` | 5 次调用，最后按类型+日期列出图片，0.92 s | 12 条图片 + 说明 |
-| `找 数据库脚本文件` | `ext:sql`，100 条候选，551 ms | 12 条 |
-| `找 昨天微信文件夹的压缩包` | 名称未命中后按类型+日期列出压缩包，476 ms | 7 条压缩包 + 说明 |
+| `找 上周开会拍的现场照片` | 5 次调用，最后按类型+日期列出图片，0.92 s | 12 条图片 + 说明 |\n| `找 数据库脚本文件` | `ext:sql`，100 条候选，551 ms | 12 条 |\n| `找 昨天微信文件夹的压缩包` | 名称未命中后按类型+日期列出压缩包，476 ms | 7 条压缩包 + 说明 |
 | `找 `（空） | 无工具调用 | 示例与键盘说明 |
 
 C++ 类型解析、`ext:cpp` 查询和 `server.cpp` 夹具均通过；测试机索引只返回了一个 Windows SDK 头文件，被“系统代码目录”规则过滤，因此该测试机查询为空——这不是解析失败，而是索引里没有用户的 C++ 源码。
