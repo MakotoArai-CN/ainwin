@@ -12,6 +12,7 @@
 #include "embedder.h"
 #include "lexicon.h"
 #include "planner.h"
+#include "settings.h"
 
 #include <algorithm>
 #include <chrono>
@@ -1740,6 +1741,24 @@ private:
             "scala", "matlab", "rlang", "web", "json", "yaml", "xml", "shell", "powershell", "markdown", "sql"};
         const bool hideSystem = (listing || sizeQuery) && !codeTypes.count(plan.type.id);
         const bool codeType = codeTypes.count(plan.type.id) != 0;
+
+        // Windows settings are not files. When the sentence names a known
+        // switch/page, put an actionable settings row above the file rows.
+        Items settingsItems;
+        if (!plan.type.set && !sizeQuery && !plan.time.set && plan.folder.empty()) {
+            for (const finder::SettingsEntry* entry : finder::matchSettings(plan.text)) {
+                Item item("s:" + std::string(entry->id), entry->title,
+                          std::string(entry->subtitle) + (zh ? " · 系统设置" : " · Windows Settings"));
+                if (entry->url)
+                    item.withUrl(entry->target);
+                else
+                    item.withPath(entry->target);
+                item.withIcon("glyph:U+E713").withCopy(entry->target)
+                    .withData(Json::Object {{"kind", "setting"}, {"target", entry->target}});
+                settingsItems.push_back(std::move(item));
+            }
+        }
+
         const std::vector<std::string> scope = !plan.folder.empty() ? std::vector<std::string> {plan.folder} : s.folders;
         std::vector<Candidate*> kept;
         int noise = 0;
@@ -1875,6 +1894,8 @@ private:
         }
 
         // What went wrong or was left out, after the rows that did work.
+        if (!settingsItems.empty())
+            items.insert(items.begin(), settingsItems.begin(), settingsItems.end());
         if (items.empty()) {
             if (out.denied) {
                 items.push_back(Item("error-permission", zh ? "没有搜索权限" : "No permission to search",
@@ -2145,6 +2166,12 @@ static int runBench(const std::string& modelDir, const std::string& datasetPath)
 
 int main(int argc, char** argv)
 {
+    if (argc >= 3 && finder::argToUtf8(argv[1]) == "--settings") {
+        const std::string text = finder::argToUtf8(argv[2]);
+        for (const finder::SettingsEntry* entry : finder::matchSettings(text, 10))
+            std::printf("%s\t%s\t%s\n", entry->id, entry->title, entry->target);
+        return 0;
+    }
     if (argc >= 4 && finder::argToUtf8(argv[1]) == "--bench")
         return runBench(finder::argToUtf8(argv[2]), finder::argToUtf8(argv[3]));
 
