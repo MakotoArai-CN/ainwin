@@ -36,8 +36,8 @@ using winshun::Json;
 
 namespace {
 
-constexpr int kContentLimit = 20;
-constexpr int kNameLimit = 30;
+constexpr int kContentLimit = 40;
+constexpr int kNameLimit = 100;
 constexpr int kContentTimeoutMs = 1200;
 constexpr long long kCacheSeconds = 60;
 
@@ -634,7 +634,7 @@ public:
                 for (const finder::AppFile& file : found) {
                     Item item("w:" + lowerKey(file.path), file.name,
                         (chinese() ? finder::sourceLabel(file.source) + " · " : finder::sourceLabel(file.source) + " · ") + formatWhen(file.modified) + " · " + humanSize(file.size));
-                    item.withPath(file.path).withIcon("file:" + file.path).withCopy(file.path)
+                    item.withPath(file.path).withIcon("file:" + file.path).withCopy(file.path).withModified(file.modified).withSize(file.size).withPreview(file.path)
                         .withData(Json::Object {{"kind", "file"}, {"path", file.path}, {"source", file.source}});
                     items.push_back(std::move(item));
                 }
@@ -780,7 +780,7 @@ private:
         Settings s;
         s.content = settings()["content"].isBool() ? settings()["content"].toBool(true) : true;
         s.maxResults = static_cast<int>(settings()["maxResults"].toInt(12));
-        s.maxResults = std::max(3, std::min(30, s.maxResults));
+        s.maxResults = std::max(0, std::min(200, s.maxResults));
         s.snippets = settings()["snippets"].isBool() ? settings()["snippets"].toBool(true) : true;
         s.useModel = settings()["useModel"].isBool() ? settings()["useModel"].toBool(true) : true;
         if (settings()["modelPreset"].isString() && !settings()["modelPreset"].toString().empty())
@@ -790,7 +790,7 @@ private:
         if (settings()["modelDir"].isString() && !settings()["modelDir"].toString().empty())
             s.modelDir = settings()["modelDir"].toString();
         s.threads = std::max(1, std::min(8, static_cast<int>(settings()["threads"].toInt(4))));
-        s.maxLength = std::max(64, std::min(384, static_cast<int>(settings()["maxLength"].toInt(128))));
+        s.maxLength = std::max(64, std::min(512, static_cast<int>(settings()["maxLength"].toInt(128))));
         s.extraTypes = settings()["extraTypes"].toString();
         s.wechatDirs = settings()["wechatDirs"].toString();
         std::string list = settings()["folders"].toString();
@@ -1781,7 +1781,7 @@ private:
                     item.withUrl(entry->target);
                 else
                     item.withPath(entry->target);
-                item.withIcon("glyph:U+E713").withCopy(entry->target)
+                item.withIcon("glyph:U+E713").withCopy(entry->target).withPreview(entry->target)
                     .withData(Json::Object {{"kind", "setting"}, {"target", entry->target}});
                 settingsItems.push_back(std::move(item));
             }
@@ -1866,8 +1866,8 @@ private:
         });
 
         Items items;
-        int limit = std::min<int>(s.maxResults, 30);
-        if (plan.concepts.size() >= 2 && out.phraseTried && out.phraseHits == 0)
+        int limit = s.maxResults == 0 ? 200 : std::min<int>(s.maxResults, 200);
+        if (s.maxResults != 0 && plan.concepts.size() >= 2 && out.phraseTried && out.phraseHits == 0)
             limit = std::min(limit, 6);
         bool anyStrong = false;
         for (const Candidate* c : kept) {
@@ -1901,9 +1901,13 @@ private:
                 .withPath(c->path)
                 .withScore(c->finalScore)
                 .withCopy(c->path)
+                .withModified(c->modified)
+                .withSize(c->size)
                 .withData(Json::Object {{"path", c->path}, {"kind", c->folder ? "folder" : "file"}});
             item.match = why.empty() ? c->name : why;
             std::string preview = c->path;
+            if (!when.empty() || !size.empty())
+                preview += "\n" + when + (!when.empty() && !size.empty() ? " · " : "") + size;
             if (!why.empty())
                 preview += std::string("\n") + (zh ? "匹配：" : "matched: ") + why;
             if (!c->snippet.empty())
@@ -1915,8 +1919,8 @@ private:
         if (listing && kept.size() > static_cast<std::size_t>(limit)) {
             const std::size_t more = kept.size() - static_cast<std::size_t>(limit);
             items.push_back(Item("note-more", zh ? "还有 " + std::to_string(more) + " 条" : std::to_string(more) + " more",
-                                     zh ? "设置 → 最多显示几条，可以调到 30；也可以加文件名、文件夹或时间缩小范围"
-                                        : "Raise Settings → Most results (up to 30), or add a name, folder or time")
+                                     zh ? "设置 → 最多显示几条，0 为不限（最多 200）；也可以加文件名、文件夹或时间缩小范围"
+                                        : "Raise Settings → Most results; 0 means unlimited (up to 200), or add a name, folder or time")
                                  .withIcon("glyph:U+E7BA")
                                  .invalid());
         }
@@ -1927,7 +1931,7 @@ private:
         if (items.empty()) {
             if (out.denied) {
                 items.push_back(Item("error-permission", zh ? "没有搜索权限" : "No permission to search",
-                                         zh ? "设置 → 插件 → 意图找文件：重新打开开关，允许 winshun:search" : "Settings → Plugins: turn it on and allow winshun:search")
+                                         zh ? "设置 → 插件 → 随心搜：重新打开开关，允许 winshun:search" : "Settings → Plugins: turn it on and allow winshun:search")
                                      .withIcon("glyph:U+E7BA")
                                      .invalid());
             } else if (out.contentOff) {

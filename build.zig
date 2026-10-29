@@ -18,8 +18,10 @@ pub fn build(b: *std.Build) void {
         }),
     });
     exe.root_module.addIncludePath(b.path("vendor"));
+    exe.root_module.addIncludePath(b.path("src/core"));
+    exe.root_module.addIncludePath(b.path("src/search"));
     exe.root_module.addCSourceFile(.{
-        .file = b.path("main.cpp"),
+        .file = b.path("src/app/main.cpp"),
         .flags = &.{
             "-std=c++17",
             "-DUNICODE",

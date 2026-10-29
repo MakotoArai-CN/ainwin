@@ -626,12 +626,22 @@ inline bool parseType(std::string& work, TypeFilter& out)
         std::size_t at;
     };
     std::vector<Match> matches;
+    const auto atQueryStart = [&](std::size_t at) {
+        std::string prefix = trim(replaceAll(work.substr(0, at), "找", " "));
+        prefix = trim(replaceAll(prefix, "find", " "));
+        prefix = trim(replaceAll(prefix, "搜索", " "));
+        return prefix.empty();
+    };
     for (const TypeWord& tw : typeWords()) {
         std::vector<std::string> terms = splitAny(tw.terms, ",");
         std::sort(terms.begin(), terms.end(), [](const std::string& a, const std::string& b) { return a.size() > b.size(); });
         for (const std::string& term : terms) {
             const std::size_t at = findTerm(work, term);
             if (at == std::string::npos)
+                continue;
+            // “文档”在句首是对象，不是类型：文档 / 文档里面的…。
+            // 只有“合同的文档”“合同文档”这种前面有内容的才算文档类型。
+            if (std::strcmp(tw.id, "documents") == 0 && atQueryStart(at))
                 continue;
             matches.push_back(Match {&tw, term, at});
             break;
@@ -760,6 +770,11 @@ inline bool parseFolder(std::string& work, std::string& folder, std::string& lab
         {"onedrive", "OneDrive", "OneDrive"},
     };
     const std::string home = userProfile();
+    const auto atStart = [&](std::size_t at) {
+        std::string prefix = trim(replaceAll(work.substr(0, at), "找", " "));
+        prefix = trim(replaceAll(prefix, "find", " "));
+        return prefix.empty();
+    };
     for (const Named& n : named) {
         for (const std::string& word : splitAny(n.words, ",")) {
             const std::size_t at = findTerm(work, word);
@@ -777,7 +792,8 @@ inline bool parseFolder(std::string& work, std::string& folder, std::string& lab
                     || tail.rfind("中的", 0) == 0 || tail.rfind("内的", 0) == 0
                     || tail.rfind("文件夹", 0) == 0 || tail.rfind("目录", 0) == 0
                     || tail.rfind("folder", 0) == 0 || tail.rfind("directory", 0) == 0;
-                if (!context)
+                const bool bareDocs = (lowerWord == "文档" || lowerWord == "document" || lowerWord == "documents" || lowerWord == "docs") && atStart(at);
+                if (!context && !bareDocs)
                     continue;
             }
             if (home.empty())

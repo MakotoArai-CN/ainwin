@@ -555,6 +555,9 @@ struct Item {
     std::vector<Action> actions;
     bool valid = true;
     Json data;
+    long long modified = 0;
+    long long size = 0;
+    bool hasSize = false;
 
     Item() = default;
     Item(std::string itemId, std::string itemTitle, std::string itemSubtitle = {})
@@ -570,6 +573,8 @@ struct Item {
     Item& withUrl(std::string url) { open = Json::Object {{"url", std::move(url)}}; return *this; }
     Item& withData(Json d) { data = std::move(d); return *this; }
     Item& withActions(std::vector<Action> a) { actions = std::move(a); return *this; }
+    Item& withModified(long long t) { modified = t; return *this; }
+    Item& withSize(long long n) { size = n; hasSize = true; return *this; }
     Item& invalid() { valid = false; return *this; }
 
     Json toJson() const
@@ -601,6 +606,10 @@ struct Item {
             o["valid"] = false;
         if (!data.isNull())
             o["data"] = data;
+        if (modified > 0)
+            o["modified"] = modified;
+        if (hasSize)
+            o["size"] = size;
         return Json(std::move(o));
     }
 };
