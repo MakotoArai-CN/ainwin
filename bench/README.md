@@ -101,8 +101,15 @@
 - **GPU 未参与**：测试机没有独显；当前版本也不会自动用独显。
 - 一次 0–200 条：0 为不限（Win顺 动态渲染，最多 200），默认 12；类型/时间列表超过上限时会在底部提示“还有 N 条”。
 
-## 多语言烟测（未完成）
+## 多语言烟测（实验）
 
-`retrieval_ja.json` 是 12 条日语段落/查询，用来验证未来多语言模型。当前发布只带中文 bge-small/base，tokenizer 是 WordPiece；multilingual MiniLM/e5 用 Unigram，bge-m3 用 SentencePiece，不能直接换 ONNX。
+`retrieval_ja.json` 是 12 条日语段落/查询。通过 `hf-mirror.com` 下载 `distiluse-base-multilingual-cased-v2` INT8（768d，WordPiece，未随包）实测：
 
-本次测试环境访问 Hugging Face 被网络阻断，没有跑出日语数字，也没有把估计值写进表里。多语言支持应按“模型 + tokenizer + 语言包”一起做。
+| 指标 | 值 |
+|---|---:|
+| Accuracy@1 | 0.583 |
+| Recall@1 / @5 / @10 | 0.583 / 0.833 / 1.000 |
+| MRR@10 / nDCG@10 | 0.696 / 0.768 |
+| 加载 / 12 段 / 12 查询 / 总计 | 1101 / 1184 / 509 / 2796 ms |
+
+这只是 12 条烟测，不是正式基准。multilingual MiniLM/e5 用 Unigram，bge-m3 用 SentencePiece，当前 tokenizer 不兼容；多语言支持应按“模型 + tokenizer + 语言包”一起做。

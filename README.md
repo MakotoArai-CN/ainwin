@@ -26,7 +26,7 @@
 - 在文件夹中显示：**Shift+Enter**
 - 全程键盘可完成；空输入时给出的示例行可回车填入。
 - 结果第二行是所在文件夹，行内带真实路径、修改时间和大小，Win顺 面板可排序/筛选。
-- 右键“详细信息”可看完整路径、时间、大小和命中原因。Win顺 0.15 的列表悬停只显示日期和按钮，插件无法自定义宿主 tooltip；完整信息放在副标题和详情动作里。
+- 右键“详细信息”可看完整路径、时间、大小和命中原因。Win顺 的原生悬停是 NameTip，只在名称/文件夹被截断时出现；插件行被当作应用行，宿主内部路径是 `winshun-plugin:...`，不能复用原生文件悬停。完整信息放在副标题和“详细信息”动作里。
 
 ## 关键字
 
@@ -185,18 +185,18 @@
 
 ### 多语言模型（实验，未随包）
 
-当前发布只带中文 bge-small/base，tokenizer 是 BERT WordPiece。日语/多语言模型没有随包，也没有把未跑通的数字写进基准表。
+当前发布只带中文 bge-small/base，tokenizer 是 BERT WordPiece。下面这次用 Hugging Face 镜像 `hf-mirror.com` 下载并实测，模型不随包。
 
-`bench/retrieval_ja.json` 是 12 条日语段落/查询的烟测集，用于以后验证：
+`bench/retrieval_ja.json`：12 条日语段落/查询，日语不是中文测试集的翻译。
 
-| 模型 | tokenizer | 现状 |
+| 模型 | tokenizer | 结果 |
 |---|---|---|
+| distiluse-base-multilingual-cased-v2 INT8 (768d) | WordPiece | **可用**：Acc@1 .583、R@1 .583、R@5 .833、R@10 1.0、MRR .696、nDCG .768；加载 1101 ms、12 段 1184 ms、12 查询 509 ms、总计 2796 ms |
 | bge-small/base/large zh | WordPiece | 中文已测；日语不建议 |
 | multilingual MiniLM / e5 | Unigram/SentencePiece | 当前 tokenizer 不兼容，需要新增 tokenizer 层 |
-| multilingual BERT | WordPiece | 可做管线烟测，但原版 BERT 不是句向量模型，检索质量不保证 |
 | bge-m3 | SentencePiece + 多向量 | 需要新 tokenizer 和模型接口，暂不支持 |
 
-这次测试环境访问 Hugging Face 被网络阻断，日语集已加入仓库但**没有伪造准确率**。将来多语言应按“模型 + tokenizer + 语言包”三者一起换，不能只换 ONNX。
+结论：`distiluse-base-multilingual-cased-v2` 可以作为一个多语言候选，但 12 条只是烟测，不能替代正式基准；换语言时要同时换模型、tokenizer 和语言包，不能只换 ONNX。
 
 ### 基准测试（不是主观感觉）
 
