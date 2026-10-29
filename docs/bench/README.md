@@ -8,8 +8,8 @@
 |---|---|
 | 机型 | Panasonic CFXZ6-1（笔记本） |
 | CPU | Intel Core i5-7300U，2 核 4 线程，2.60 GHz 基准 / 2.71 GHz 最大，3 MB L3 |
-| 内存 | 8 GB（2 × 4 GB DDR4-1867，系统可见 8,475,824,128 字节） |
-| 显卡 | Intel HD Graphics 620（1 GB，核显）；**无独立显卡，测试中未使用 GPU** |
+| 内存 | 8 GB（2 × 4 GB DDR4-1867） |
+| 显卡 | Intel HD Graphics 620（1 GB，核显）；**无独立显卡** |
 | 硬盘 | Samsung MZNLN256HMHQ-00007，256 GB SATA SSD |
 | 系统 | Windows 10 专业版 22H2，10.0.19045，x64 |
 | 电源 | 高性能（插电） |
@@ -101,7 +101,7 @@
 - **GPU 未参与**：测试机没有独显；当前版本也不会自动用独显。
 - 一次 0–200 条：0 为不限（Win顺 动态渲染，最多 200），默认 12；类型/时间列表超过上限时会在底部提示“还有 N 条”。
 
-## 多语言烟测（实验）
+## 多语言（实验）
 
 `retrieval_ja.json` 是 12 条日语段落/查询。通过 `hf-mirror.com` 下载 `distiluse-base-multilingual-cased-v2` INT8（768d，WordPiece，未随包）实测：
 
@@ -112,8 +112,9 @@
 | MRR@10 / nDCG@10 | 0.696 / 0.768 |
 | 加载 / 12 段 / 12 查询 / 总计 | 1101 / 1184 / 509 / 2796 ms |
 
-这只是 12 条烟测，不是正式基准。multilingual MiniLM/e5 用 Unigram，bge-m3 用 SentencePiece，当前 tokenizer 不兼容；多语言支持应按“模型 + tokenizer + 语言包”一起做。
-## 复杂查询回归（0.5.7）
+这只是 12 条实验性测试，不是正式基准。multilingual MiniLM/e5 用 Unigram，bge-m3 用 SentencePiece，当前 tokenizer 不兼容；多语言支持应按“模型 + tokenizer + 语言包”规划。
+
+## 复杂查询回归
 
 以下在测试机上真实走插件查询，不是只解析：
 
