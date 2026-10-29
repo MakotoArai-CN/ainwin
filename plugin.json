@@ -3,7 +3,7 @@
   "manifest": 1,
   "id": "ainwin",
   "name": {"zh": "随心搜", "en": "Suixin Search"},
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": {"zh": "用一句话描述要找的文件或系统设置：拆解概念、时间、类型、位置和大小，用本机 INT8 向量模型按意思重排；覆盖常见与冷门文件类型，支持显式扩展名和自定义行业类型。完全离线，不联网。", "en": "Describe the file or Windows setting you want; it parses concepts, time, type, place and size, then reranks with a local INT8 model. Common and rare types, explicit extensions, custom industry types and a built-in Windows settings catalog. Fully offline."},
   "author": "MakotoArai-CN",
   "license": "MIT",
@@ -13,7 +13,7 @@
   "commands": [
     {
       "id": "find",
-      "keyword": ["找", "zf", "f", "s"],
+      "keyword": ["找", "zf", "f"],
       "title": {"zh": "随心搜", "en": "Suixin Search"},
       "description": {"zh": "说一句你要找什么，不用记得文件名", "en": "Say what you are looking for; the name is not needed"},
       "hint": {"zh": "例如：去年报销的规定、上周的会议记录、桌面上的合同 PDF", "en": "e.g. last year's expense rules, last week's meeting notes"},
