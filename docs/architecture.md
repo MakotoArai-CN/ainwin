@@ -20,7 +20,6 @@ docs/
   settings.md
   models.md
   limitations.md
-  promotion.md
   bench/          可复现的检索基准和日语烟测集
 models/           随包的 bge-small/base（large 需自备）
 vendor/           ONNX Runtime C API 头

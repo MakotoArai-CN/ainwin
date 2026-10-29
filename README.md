@@ -92,7 +92,6 @@ cmake --build build --config Release
 - [模型、上下文与多语言](docs/models.md)
 - [基准测试](docs/bench/README.md)
 - [已知限制](docs/limitations.md)
-- [宣传与社区](docs/promotion.md)
 
 ## 友情链接
 
