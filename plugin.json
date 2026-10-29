@@ -21,7 +21,8 @@
       "actions": [
         {"id": "default", "title": {"zh": "打开", "en": "Open"}, "key": "Enter"},
         {"id": "copy", "title": {"zh": "复制路径", "en": "Copy path"}, "key": "Ctrl+Enter"},
-        {"id": "reveal", "title": {"zh": "在文件夹中显示", "en": "Show in folder"}, "key": "Shift+Enter"}
+        {"id": "reveal", "title": {"zh": "在文件夹中显示", "en": "Show in folder"}, "key": "Shift+Enter"},
+        {"id": "details", "title": {"zh": "详细信息", "en": "Details"}}
       ],
       "ai": {"description": "Find the user's local files by a natural-language description (Chinese or English), e.g. \"last year's travel expense rules\" or \"猫打针的记录\". It understands common concepts, time ranges, file types, folders and sizes, searches WinShun's file and content indexes, then reranks the passages with a local embedding model on this PC. Returns files and folders with path, why they matched and a content snippet. It is read-only and never opens files; the user opens a result."}
     }

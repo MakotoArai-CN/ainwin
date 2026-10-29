@@ -119,6 +119,12 @@ std::string dateToken(long long seconds)
     return buffer;
 }
 
+std::string parentDir(const std::string& path)
+{
+    const std::size_t at = path.find_last_of("\\/");
+    return at == std::string::npos ? std::string() : path.substr(0, at);
+}
+
 std::string folderTerm(const std::string& folder)
 {
     std::string name = finder::basename(folder);
@@ -632,8 +638,9 @@ public:
             if (!found.empty()) {
                 Items items;
                 for (const finder::AppFile& file : found) {
-                    Item item("w:" + lowerKey(file.path), file.name,
-                        (chinese() ? finder::sourceLabel(file.source) + " · " : finder::sourceLabel(file.source) + " · ") + formatWhen(file.modified) + " · " + humanSize(file.size));
+                    const std::string ChatSubtitle = parentDir(file.path) + " · " + finder::sourceLabel(file.source)
+                        + " · " + formatWhen(file.modified) + " · " + humanSize(file.size);
+                    Item item("w:" + lowerKey(file.path), file.name, ChatSubtitle);
                     const std::string prev = file.path + "\n" + formatWhen(file.modified) + " · " + humanSize(file.size);
                     item.withPath(file.path).withIcon("file:" + file.path).withCopy(file.path).withModified(file.modified).withSize(file.size).withPreview(prev)
                         .withData(Json::Object {{"kind", "file"}, {"path", file.path}, {"source", file.source}});
@@ -675,6 +682,12 @@ public:
         if (action == "copy" || action == "copyPath") {
             const std::string text = path.empty() ? a.item["copy"].toString() : path;
             return {winshun::effect::copy(text), winshun::effect::notify(chinese() ? "已复制路径" : "Path copied"), winshun::effect::hide()};
+        }
+        if (action == "details") {
+            std::string details = a.item["preview"]["text"].isString() ? a.item["preview"]["text"].toString() : path;
+            if (details.empty())
+                details = path;
+            return {winshun::effect::notify(details), winshun::effect::keep()};
         }
         if (action == "reveal") {
             if (path.empty())
@@ -1777,7 +1790,7 @@ private:
         if (!plan.type.set && !sizeQuery && !plan.time.set && plan.folder.empty()) {
             for (const finder::SettingsEntry* entry : finder::matchSettings(plan.text)) {
                 Item item("s:" + std::string(entry->id), entry->title,
-                          std::string(entry->subtitle) + (zh ? " · 系统设置" : " · Windows Settings"));
+                          std::string(entry->subtitle) + (zh ? " · 系统设置 · " : " · Windows Settings · ") + entry->target);
                 if (entry->url)
                     item.withUrl(entry->target);
                 else
@@ -1881,20 +1894,27 @@ private:
             const std::string why = explain(plan, *c);
             const std::string when = formatWhen(c->modified);
             const std::string size = humanSize(c->size);
-            std::string subtitle;
+            std::string subtitle = parentDir(c->path);
+            const auto addPart = [&](const std::string& part) {
+                if (part.empty())
+                    return;
+                if (!subtitle.empty())
+                    subtitle += " · ";
+                subtitle += part;
+            };
+            std::string reason;
             if (!why.empty()) {
-                subtitle = (c->phraseHit ? (zh ? "同段命中 " : "same passage: ") : (zh ? "命中 " : "matched ")) + why;
+                reason = (c->phraseHit ? (zh ? "同段命中 " : "same passage: ") : (zh ? "命中 " : "matched ")) + why;
             } else if (c->nameHit) {
-                subtitle = zh ? "文件名相近" : "similar name";
+                reason = zh ? "文件名相近" : "similar name";
             } else {
-                subtitle = zh ? "内容相近" : "similar content";
+                reason = zh ? "内容相近" : "similar content";
             }
-            if (!when.empty())
-                subtitle += " · " + when;
-            if (!size.empty())
-                subtitle += " · " + size;
+            addPart(reason);
+            addPart(when);
+            addPart(size);
             if (s.snippets && !c->snippet.empty())
-                subtitle += " · " + trimSnippet(c->snippet, zh ? 42 : 60);
+                addPart(trimSnippet(c->snippet, zh ? 42 : 60));
 
             std::string title = c->folder ? c->name + "\\" : c->name;
             Item item("f:" + lowerKey(c->path), title, subtitle);
