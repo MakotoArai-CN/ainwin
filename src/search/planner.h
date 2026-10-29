@@ -46,6 +46,7 @@ struct Plan {
     TimeRange time;
     TypeFilter type;
     std::string folder; // a prefix, as typed/expanded
+    std::vector<std::string> folders; // every named folder
     std::string folderLabel;
     bool minSizeSet = false;
     bool maxSizeSet = false;
@@ -245,6 +246,41 @@ inline TimeRange namedRange(const std::string& word)
 
 inline bool parseTime(std::string& work, TimeRange& out)
 {
+    // 上季度 / 本季度 / 下季度
+    static const struct { const char* word; int offset; const char* label; } quarters[] = {
+        {"上个季度", -1, "上季度"}, {"上季度", -1, "上季度"}, {"本季度", 0, "本季度"},
+        {"这季度", 0, "本季度"}, {"下季度", 1, "下季度"},
+    };
+    for (const auto& q : quarters) {
+        const std::size_t at = work.find(q.word);
+        if (at == std::string::npos)
+            continue;
+        const std::tm now = localNow();
+        int year = now.tm_year + 1900;
+        int quarter = now.tm_mon / 3 + q.offset;
+        while (quarter < 0) {
+            quarter += 4;
+            --year;
+        }
+        while (quarter > 3) {
+            quarter -= 4;
+            ++year;
+        }
+        const int month = quarter * 3 + 1;
+        out.set = true;
+        out.from = epochOf(year, month, 1);
+        int ny = year;
+        int nm = month + 3;
+        if (nm > 12) {
+            nm -= 12;
+            ++ny;
+        }
+        out.to = epochOf(ny, nm, 1);
+        out.label = q.label;
+        eraseAt(work, at, std::string(q.word).size());
+        return true;
+    }
+
     // 2024-05 / 2024/05
     for (std::size_t i = 0; i + 6 < work.size(); ++i) {
         const bool yearOk = std::isdigit(static_cast<unsigned char>(work[i])) && std::isdigit(static_cast<unsigned char>(work[i + 1]))
@@ -511,7 +547,7 @@ inline const std::vector<TypeWord>& typeWords()
         {"captures", "抓包", "抓包,网络包,pcap,网络流量", "pcap,pcapng,cap,har,net,trc", false, true},
         {"gameassets", "游戏资源", "游戏资源,游戏素材,assetbundle,游戏资产", "pak,uasset,umap,unitypackage,assetbundle,wad,pk3,vpk,bsa,ba2,esp,esm,nif,dds", false, true},
         {"virtual", "虚拟机", "虚拟机,虚拟磁盘,vm,虚拟机镜像", "vhd,vhdx,vmdk,vdi,qcow2,qcow,ova,ovf,iso,img,wim,dmg,esd,swm", false, true},
-        {"backups", "备份文件", "备份文件,backup,bak文件", "bak,backup,bkp,old,orig,shadow,sqlitedb", false, true},
+        {"backups", "备份文件", "备份文件,backup,bak文件", "bak,backup,bkp,old,orig,shadow,sqlitedb,db,sqlite,sqlite3,dump,sql", false, true},
         {"database", "数据库", "数据库文件,db文件,sqlite,mdb,accdb,数据库表", "db,db3,sqlite,sqlite3,mdb,accdb,dbf,frm,ibd,myd,myi,mdf,ndf,ldf,parquet,avro,orc,duckdb,realm", false, false},
         {"email", "邮件", "邮件,email,eml,msg,邮箱,邮件存档", "eml,msg,mbox,pst,ost,oft", false, false},
         {"cad", "图纸", "图纸,cad,施工图,dwg,dxf,三维模型,3d模型,stl,step,iges,sketchup", "dwg,dxf,dgn,stp,step,igs,iges,stl,obj,fbx,3ds,blend,max,skp,rvt,ifc,3mf,amf,gcode", false, false},
@@ -700,6 +736,21 @@ inline bool parseType(std::string& work, TypeFilter& out)
     out.label = chosen->label;
     out.folders = chosen->folders;
     out.extensions = splitAny(chosen->extensions, ",");
+    // "word和excel" / "视频和安装包": keep the head noun for the label, but
+    // filter on the union of every concrete format the sentence named.
+    if (!out.folders) {
+        std::vector<std::string> mergedExtensions;
+        for (const Match& match : matches) {
+            if (match.word->folders)
+                continue;
+            for (const std::string& ext : splitAny(match.word->extensions, ",")) {
+                if (!ext.empty() && std::find(mergedExtensions.begin(), mergedExtensions.end(), ext) == mergedExtensions.end())
+                    mergedExtensions.push_back(ext);
+            }
+        }
+        if (!mergedExtensions.empty())
+            out.extensions = std::move(mergedExtensions);
+    }
     out.matched = chosen->keepTerm ? matches[primary].term : std::string();
     return true;
 }
@@ -791,6 +842,7 @@ inline bool parseFolder(std::string& work, std::string& folder, std::string& lab
                 const bool context = tail.rfind("里面", 0) == 0 || tail.rfind("里的", 0) == 0
                     || tail.rfind("中的", 0) == 0 || tail.rfind("内的", 0) == 0
                     || tail.rfind("文件夹", 0) == 0 || tail.rfind("目录", 0) == 0
+                    || tail.rfind("里", 0) == 0 || tail.rfind("中", 0) == 0 || tail.rfind("下", 0) == 0
                     || tail.rfind("folder", 0) == 0 || tail.rfind("directory", 0) == 0;
                 const bool bareDocs = (lowerWord == "文档" || lowerWord == "document" || lowerWord == "documents" || lowerWord == "docs") && atStart(at);
                 if (!context && !bareDocs)
@@ -840,6 +892,70 @@ inline long long parseSizeNumber(const std::string& digits, const std::string& u
     if (u.rfind("kb", 0) == 0 || u.rfind("k", 0) == 0 || u.rfind("千", 0) == 0)
         return n * 1024LL;
     return n;
+}
+
+inline bool parseClock(std::string& work, TimeRange& out)
+{
+    static const struct { const char* word; int add; } periods[] = {
+        {"凌晨", 0}, {"早上", 0}, {"上午", 0}, {"中午", 12}, {"下午", 12}, {"晚上", 12},
+    };
+    for (const auto& period : periods) {
+        const std::size_t at = work.find(period.word);
+        if (at == std::string::npos)
+            continue;
+        const std::size_t point = work.find("点", at + std::string(period.word).size());
+        if (point == std::string::npos || point - at > 10)
+            continue;
+        std::size_t start = at + std::string(period.word).size();
+        while (start < point && work[start] == ' ')
+            ++start;
+        int hour = -1;
+        if (start < point && std::isdigit(static_cast<unsigned char>(work[start])))
+            hour = static_cast<int>(parseNumber(work.substr(start, point - start)));
+        else {
+            std::size_t used = 0;
+            const long long n = parseChineseNumber(work, start, used);
+            if (n > 0 && start + used <= point)
+                hour = static_cast<int>(n);
+        }
+        if (hour < 0 || hour > 23)
+            continue;
+        if (period.add == 12 && hour < 12)
+            hour += 12;
+        if (period.add == 0 && hour == 12)
+            hour = 0;
+        std::size_t end = point + std::string("点").size();
+        bool after = true;
+        if (work.compare(end, std::string("以后").size(), "以后") == 0)
+            end += std::string("以后").size();
+        else if (work.compare(end, std::string("之后").size(), "之后") == 0)
+            end += std::string("之后").size();
+        else if (work.compare(end, std::string("以前").size(), "以前") == 0) {
+            end += std::string("以前").size();
+            after = false;
+        } else if (work.compare(end, std::string("之前").size(), "之前") == 0) {
+            end += std::string("之前").size();
+            after = false;
+        } else if (work.compare(end, std::string("前").size(), "前") == 0) {
+            end += std::string("前").size();
+            after = false;
+        }
+        const std::tm now = localNow();
+        const long long day = out.set ? out.from : epochOf(now.tm_year + 1900, now.tm_mon + 1, now.tm_mday);
+        if (after) {
+            out.set = true;
+            out.from = day + hour * 3600;
+            out.to = std::max(out.to, day + 86400);
+        } else {
+            out.set = true;
+            out.from = std::min(out.from, day);
+            out.to = day + hour * 3600;
+        }
+        out.label += (out.label.empty() ? "" : " ") + std::string(after ? "之后" : "之前");
+        eraseAt(work, at, end - at);
+        return true;
+    }
+    return false;
 }
 
 inline bool parseSize(std::string& work, Plan& plan)
@@ -921,6 +1037,14 @@ inline bool parseExclusions(std::string& work, std::vector<std::string>& out)
             ++counted;
         }
         std::string term = trim(work.substr(start, p - start));
+        for (const char* suffix : {"以外", "之外", "除外"}) {
+            const std::string value(suffix);
+            if (term.size() > value.size() && term.compare(term.size() - value.size(), value.size(), value) == 0) {
+                term.erase(term.size() - value.size());
+                break;
+            }
+        }
+        term = trim(term);
         if (!term.empty()) {
             out.push_back(term);
             eraseAt(work, at, p - at);
@@ -1029,12 +1153,22 @@ inline Plan parsePlan(const std::string& text, const std::string& extraTypes = {
 
     parseExclusions(work, plan.exclude);
     parseTime(work, plan.time);
+    parseClock(work, plan.time);
     parseSize(work, plan);
-    std::string folder;
-    std::string folderLabel;
-    if (parseFolder(work, folder, folderLabel)) {
-        plan.folder = folder;
-        plan.folderLabel = folderLabel;
+    parseSize(work, plan); // second bound: 大于1M小于50M
+    // A sentence can name two folders; the first stays plan.folder for
+    // display, all of them are used for the local scope filter.
+    for (int n = 0; n < 3; ++n) {
+        std::string folder;
+        std::string folderLabel;
+        if (!parseFolder(work, folder, folderLabel))
+            break;
+        if (plan.folder.empty()) {
+            plan.folder = folder;
+            plan.folderLabel = folderLabel;
+        }
+        if (std::find(plan.folders.begin(), plan.folders.end(), folder) == plan.folders.end())
+            plan.folders.push_back(folder);
     }
     if (!parseExtraType(work, plan.type, extraTypes) && !parseExplicitType(work, plan.type))
         parseType(work, plan.type);
@@ -1046,11 +1180,15 @@ inline Plan parsePlan(const std::string& text, const std::string& extraTypes = {
     // Generic phrases that are not worth searching.
     static const char* const filler[] = {"帮我找一下", "帮我找", "帮忙找", "找一下", "搜索一下", "查一下", "看一下",
         "我想找", "我想要", "需要找", "有没有", "关于", "有关", "相关", "里面", "里提到", "中提到", "提到",
-        "写到", "写到过", "说的是", "讲的是", "那份", "这份", "内容", "文件名", "文件", "东西", "资料", "材料", "扫描件", "里的"};
+        "写到", "写到过", "说的是", "讲的是", "那份", "这份", "内容", "文件名", "文件", "东西", "资料", "材料", "扫描件", "里的",
+        "收到", "收到的", "发来", "发来的", "发送", "发送的", "发的", "接收", "接收的", "打开过", "没有打开过",
+        "修改过", "修改的", "按时间倒序", "时间倒序", "倒序", "排序", "相关的", "文件名带", "以后", "之前"};
     for (const char* phrase : filler)
         work = replaceAll(work, phrase, " ");
     work = replaceAll(work, "的", " ");
     work = replaceAll(work, "记录", " ");
+    for (const char* connector : {"和", "或", "与", "及"})
+        work = replaceAll(work, connector, " ");
 
     // What is left: words the knowledge base did not know.
     std::vector<std::string> tokens = splitAny(work, " \t\r\n,;:.!?()[]{}<>|/\\*\"'");

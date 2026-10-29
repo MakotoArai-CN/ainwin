@@ -1186,7 +1186,8 @@ private:
         // alone and filter by folder locally.
         const bool hasFilters = plan.minSizeSet || plan.maxSizeSet || plan.time.set;
         const bool folderOnly = plan.terms.empty() && !plan.type.set && !plan.folder.empty();
-        if (!plan.folder.empty() && !(folderOnly && hasFilters)) {
+        const bool multiFolder = plan.folders.size() > 1;
+        if (!plan.folder.empty() && !multiFolder && !(folderOnly && hasFilters)) {
             const std::string folder = folderTerm(plan.folder);
             if (!folder.empty())
                 strict = quoteWord(folder) + (strict.empty() ? std::string() : " " + strict);
@@ -1213,8 +1214,8 @@ private:
 
         if (!strict.empty()) {
             Json args = Json::Object {{"query", strict}, {"kind", plan.type.folders ? "folders" : "all"},
-                {"limit", (folderOnly && hasFilters) ? 200 : (listing ? 100 : kNameLimit)},
-                {"sort", (listing || (folderOnly && hasFilters)) ? "modified" : "relevance"}};
+                {"limit", (folderOnly && hasFilters) || multiFolder ? 200 : (listing ? 100 : kNameLimit)},
+                {"sort", (listing || (folderOnly && hasFilters) || multiFolder) ? "modified" : "relevance"}};
             const Json r = tool("search_files", args);
             ++out.calls;
             logTool("search_files", strict, r);
@@ -1650,7 +1651,13 @@ private:
     bool usable(const Plan& plan, const SearchOutcome& out) const
     {
         const Settings s = currentSettings();
-        const std::vector<std::string> scope = !plan.folder.empty() ? std::vector<std::string> {plan.folder} : s.folders;
+        std::vector<std::string> scope;
+        if (!plan.folders.empty())
+            scope = plan.folders;
+        else if (!plan.folder.empty())
+            scope.push_back(plan.folder);
+        else
+            scope = s.folders;
         for (const auto& [key, c] : out.candidates) {
             (void)key;
             if (typeFits(plan, c) && timeFits(plan, c) && sizeFits(plan, c) && inScope(c.path, scope) && !excluded(plan, c))
@@ -1818,7 +1825,13 @@ private:
             }
         }
 
-        const std::vector<std::string> scope = !plan.folder.empty() ? std::vector<std::string> {plan.folder} : s.folders;
+        std::vector<std::string> scope;
+        if (!plan.folders.empty())
+            scope = plan.folders;
+        else if (!plan.folder.empty())
+            scope.push_back(plan.folder);
+        else
+            scope = s.folders;
         std::vector<Candidate*> kept;
         int noise = 0;
         for (auto& [key, c] : out.candidates) {
@@ -2320,10 +2333,16 @@ int main(int argc, char** argv)
         Json exclude(Json::Array {});
         for (const auto& t : plan.exclude)
             exclude.push(t);
+        Json folders(Json::Array {});
+        for (const auto& f : plan.folders)
+            folders.push(f);
+        Json extensions(Json::Array {});
+        for (const auto& ext : plan.type.extensions)
+            extensions.push(ext);
         Json out = Json::Object {{"text", plan.text}, {"concepts", concepts}, {"terms", terms}, {"exclude", exclude},
             {"time", Json::Object {{"set", plan.time.set}, {"from", plan.time.from}, {"to", plan.time.to}, {"label", plan.time.label}}},
-            {"type", Json::Object {{"set", plan.type.set}, {"id", plan.type.id}, {"label", plan.type.label}}},
-            {"folder", plan.folder}, {"minSize", plan.minSizeSet ? Json(plan.minSize) : Json(nullptr)},
+            {"type", Json::Object {{"set", plan.type.set}, {"id", plan.type.id}, {"label", plan.type.label}, {"extensions", extensions}}},
+            {"folder", plan.folder}, {"folders", folders}, {"minSize", plan.minSizeSet ? Json(plan.minSize) : Json(nullptr)},
             {"maxSize", plan.maxSizeSet ? Json(plan.maxSize) : Json(nullptr)}};
         std::string textOut = out.dump();
         std::printf("%s\n", textOut.c_str());
