@@ -634,7 +634,8 @@ public:
                 for (const finder::AppFile& file : found) {
                     Item item("w:" + lowerKey(file.path), file.name,
                         (chinese() ? finder::sourceLabel(file.source) + " · " : finder::sourceLabel(file.source) + " · ") + formatWhen(file.modified) + " · " + humanSize(file.size));
-                    item.withPath(file.path).withIcon("file:" + file.path).withCopy(file.path).withModified(file.modified).withSize(file.size).withPreview(file.path)
+                    const std::string prev = file.path + "\n" + formatWhen(file.modified) + " · " + humanSize(file.size);
+                    item.withPath(file.path).withIcon("file:" + file.path).withCopy(file.path).withModified(file.modified).withSize(file.size).withPreview(prev)
                         .withData(Json::Object {{"kind", "file"}, {"path", file.path}, {"source", file.source}});
                     items.push_back(std::move(item));
                 }
