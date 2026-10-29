@@ -1,4 +1,4 @@
-# ainwin 基准测试
+# suixin 基准测试
 
 这里是发布文档里所有数字的来源。测试集、命令、测试机配置和限制都写清楚，方便复现；不是“感觉更快”。
 
@@ -24,7 +24,7 @@
 
 ### 数据集
 
-`bench/retrieval_zh.json`：24 条中文段落、30 条查询，查询和段落一一或一对多标注相关项。包含同义改写和难负例，例如：
+`docs/bench/retrieval_zh.json`：24 条中文段落、30 条查询，查询和段落一一或一对多标注相关项。包含同义改写和难负例，例如：
 
 - “住酒店的钱怎么走账” vs “出差安全注意事项”
 - “房东提前收房怎么办” vs “租房协议模板”
@@ -36,9 +36,9 @@
 ### 方法
 
 ```powershell
-.\ainwin.exe --bench models\bge-small-zh-v1.5-int8 bench\retrieval_zh.json
-.\ainwin.exe --bench models\bge-base-zh-v1.5-int8  bench\retrieval_zh.json
-.\ainwin.exe --bench models\bge-large-zh-v1.5-int8 bench\retrieval_zh.json
+.\suixin.exe --bench models\bge-small-zh-v1.5-int8 docs\bench\retrieval_zh.json
+.\suixin.exe --bench models\bge-base-zh-v1.5-int8  docs\bench\retrieval_zh.json
+.\suixin.exe --bench models\bge-large-zh-v1.5-int8 docs\bench\retrieval_zh.json
 ```
 
 `--bench` 加载一个模型，编码 24 条段落和 30 条查询，按余弦相似度排序，输出：

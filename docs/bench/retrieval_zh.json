@@ -1,5 +1,5 @@
 {
-  "name": "ainwin retrieval benchmark (Chinese, 24 passages, 30 queries)",
+  "name": "suixin retrieval benchmark (Chinese, 24 passages, 30 queries)",
   "version": 1,
   "docs": [
     {"id": "d01", "text": "差旅费用报销规定：员工出差前须提交出差申请，住宿费按城市标准限额报销，交通费凭票报销，餐补按天计算。报销时需附发票、行程单和审批单。"},

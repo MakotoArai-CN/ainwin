@@ -9,7 +9,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.option(std.builtin.Optimize, "optimize", "Optimization mode") orelse .fast;
 
     const exe = b.addExecutable(.{
-        .name = "ainwin",
+        .name = "suixin",
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
@@ -35,6 +35,6 @@ pub fn build(b: *std.Build) void {
     // onnxruntime.dll is loaded with LoadLibrary at run time, so there is no
     // import library to link and the plugin still starts without the model.
     const install = b.addUpdateSourceFiles();
-    install.addCopyFileToSource(exe.getEmittedBin(), "ainwin.exe");
+    install.addCopyFileToSource(exe.getEmittedBin(), "suixin.exe");
     b.getInstallStep().dependOn(&install.step);
 }

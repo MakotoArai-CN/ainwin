@@ -608,7 +608,7 @@ std::vector<std::string> phraseProbes(const Plan& plan)
 
 class Plugin : public winshun::Plugin {
 public:
-    std::string name() const override { return "ainwin"; }
+    std::string name() const override { return "suixin"; }
 
     winshun::Items query(const winshun::Query& q) override
     {
@@ -2078,7 +2078,7 @@ private:
 } // namespace
 
 // Developer benchmark: retrieval accuracy and encoding speed for one model.
-// Usage: ainwin.exe --bench <modelDir> <dataset.json>
+// Usage: suixin.exe --bench <modelDir> <dataset.json>
 static int runBench(const std::string& modelDir, const std::string& datasetPath)
 {
     std::ifstream in(datasetPath, std::ios::binary);
@@ -2118,7 +2118,7 @@ static int runBench(const std::string& modelDir, const std::string& datasetPath)
     }
 
     int threads = 4;
-    if (const char* value = std::getenv("AINWIN_THREADS")) {
+    if (const char* value = std::getenv("SUIXIN_THREADS")) {
         const int n = std::atoi(value);
         if (n >= 1 && n <= 8)
             threads = n;
@@ -2270,14 +2270,14 @@ int main(int argc, char** argv)
     // Developer aid: check the local encoder without Win顺.
     if (argc >= 3 && finder::argToUtf8(argv[1]) == "--embed") {
         std::string modelDir = "models\\bge-small-zh-v1.5-int8";
-        if (const char* envModel = std::getenv("AINWIN_MODEL"))
+        if (const char* envModel = std::getenv("SUIXIN_MODEL"))
             modelDir = envModel;
         std::vector<std::string> texts;
         for (int i = 2; i < argc; ++i)
             texts.push_back(finder::argToUtf8(argv[i]));
         finder::Embedder embedder;
         int embedThreads = 4;
-        if (const char* envThreads = std::getenv("AINWIN_THREADS")) {
+        if (const char* envThreads = std::getenv("SUIXIN_THREADS")) {
             const int n = std::atoi(envThreads);
             if (n >= 1 && n <= 8)
                 embedThreads = n;

@@ -92,7 +92,7 @@ public:
             return false;
         }
 
-        if (!check(m_api->CreateEnv(ORT_LOGGING_LEVEL_ERROR, "ainwin", &m_env), "CreateEnv"))
+        if (!check(m_api->CreateEnv(ORT_LOGGING_LEVEL_ERROR, "suixin", &m_env), "CreateEnv"))
             return false;
 
         std::wstring modelPath;

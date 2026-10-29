@@ -1,4 +1,4 @@
-# Builds ainwin.exe with Zig (0.17+). On a machine with MSVC, CMake works too.
+# Builds suixin.exe with Zig (0.17+). On a machine with MSVC, CMake works too.
 param([switch]$Clean)
 
 $ErrorActionPreference = "Stop"
@@ -11,10 +11,10 @@ try {
         throw "Zig was not found. Install it from https://ziglang.org/download/ and run this again."
     }
     zig build -Doptimize=fast
-    if (-not (Test-Path "ainwin.exe")) {
-        throw "zig build finished but ainwin.exe is missing."
+    if (-not (Test-Path "suixin.exe")) {
+        throw "zig build finished but suixin.exe is missing."
     }
-    Write-Host ("ainwin.exe built: " + (Get-Item "ainwin.exe").Length + " bytes")
+    Write-Host ("suixin.exe built: " + (Get-Item "suixin.exe").Length + " bytes")
 } finally {
     Pop-Location
 }

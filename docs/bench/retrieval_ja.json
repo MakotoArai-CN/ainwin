@@ -1,5 +1,5 @@
 {
-  "name": "ainwin multilingual smoke test (Japanese, 12 passages, 12 queries)",
+  "name": "suixin multilingual smoke test (Japanese, 12 passages, 12 queries)",
   "version": 1,
   "docs": [
     {"id": "j01", "text": "出張経費の精算ルール：出張前に申請書を提出し、宿泊費は都市ごとの上限内で精算する。交通費は領収書が必要で、食事代は日額で支給する。"},
