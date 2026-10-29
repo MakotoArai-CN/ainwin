@@ -13,7 +13,7 @@
   "commands": [
     {
       "id": "find",
-      "keyword": ["找", "zf", "f"],
+      "keyword": ["找", "find", "search", "f", "zf"],
       "title": {"zh": "随心搜", "en": "Suixin Search"},
       "description": {"zh": "说一句你要找什么，不用记得文件名", "en": "Say what you are looking for; the name is not needed"},
       "hint": {"zh": "例如：去年报销的规定、上周的会议记录、桌面上的合同 PDF", "en": "e.g. last year's expense rules, last week's meeting notes"},
@@ -42,7 +42,8 @@
     ], "default": "auto"},
     {"key": "modelDir", "type": "text", "title": {"zh": "自定义模型文件夹", "en": "Custom model folder"}, "hint": {"zh": "仅“自定义”档使用；相对插件目录，里面要有 model_quantized.onnx、vocab.txt 和 onnxruntime.dll", "en": "Only for the Custom preset; relative to the plugin folder: model_quantized.onnx, vocab.txt and onnxruntime.dll"}, "default": "models\\bge-small-zh-v1.5-int8"},
     {"key": "threads", "type": "number", "title": {"zh": "模型线程数", "en": "Model threads"}, "hint": {"zh": "1 到 8，默认 4；性能好的机器可以调高", "en": "1 to 8, default 4; higher on a fast machine"}, "default": 4},
-    {"key": "maxLength", "type": "number", "title": {"zh": "上下文（tokens）", "en": "Context (tokens)"}, "hint": {"zh": "64 到 512，默认 128；越大越准也越慢，模型上限 512", "en": "64 to 512, default 128; more is more accurate and slower; model limit 512"}, "default": 128},
+    {"key": "maxLength", "type": "number", "title": {"zh": "上下文（tokens）", "en": "Context (tokens)"}, "hint": {"zh": "0 = 自动（推荐）；64–512 固定。自动按查询长度增长，模型上限 512", "en": "0 = automatic (recommended); 64–512 fixed. Auto grows with the query, model limit 512"}, "default": 0},
+    {"key": "contextCap", "type": "number", "title": {"zh": "自动扩容上限", "en": "Automatic context cap"}, "hint": {"zh": "128–512；默认 256，0 = 模型上限 512", "en": "128–512; default 256, 0 = model limit 512"}, "default": 256},
     {"key": "extraTypes", "type": "text", "title": {"zh": "自定义类型", "en": "Your own types"}, "hint": {"zh": "格式：词=扩展名;词=扩展名。例：点云=las,laz;标本=svs,ndpi;注塑=mold,stp。不认识的行业格式写在这里，或直接用 *.扩展名", "en": "Format: word=ext;word=ext. e.g. pointcloud=las,laz; or just type *.ext"}, "default": ""},
     {"key": "wechatDirs", "type": "text", "title": {"zh": "聊天/办公软件文件目录", "en": "Chat/office file folders"}, "hint": {"zh": "只搜传输/接收文件；留空自动找微信、QQ、企业微信、钉钉、飞书、WPS 的默认目录，用分号隔开", "en": "Transferred/received files only. Empty: auto-detect WeChat, QQ, WeCom, DingTalk, Feishu and WPS folders; separate custom paths with semicolons"}, "default": ""}
   ],

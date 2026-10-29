@@ -100,3 +100,9 @@
 - **large**：在这台 8 GB 双核机上模型级跑分能完成，但端到端重排 11.5 s，**被 Win顺 10 s 超时丢弃**；不建议在同类设备选它，32 GB / 更多核心的机器可自行测试。
 - **GPU 未参与**：测试机没有独显；当前版本也不会自动用独显。
 - 一次 0–200 条：0 为不限（Win顺 动态渲染，最多 200），默认 12；类型/时间列表超过上限时会在底部提示“还有 N 条”。
+
+## 多语言烟测（未完成）
+
+`retrieval_ja.json` 是 12 条日语段落/查询，用来验证未来多语言模型。当前发布只带中文 bge-small/base，tokenizer 是 WordPiece；multilingual MiniLM/e5 用 Unigram，bge-m3 用 SentencePiece，不能直接换 ONNX。
+
+本次测试环境访问 Hugging Face 被网络阻断，没有跑出日语数字，也没有把估计值写进表里。多语言支持应按“模型 + tokenizer + 语言包”一起做。

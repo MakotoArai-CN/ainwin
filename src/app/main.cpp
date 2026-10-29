@@ -37,6 +37,7 @@ using winshun::Json;
 namespace {
 
 constexpr int kContentLimit = 40;
+int g_autoContext = 0;
 constexpr int kNameLimit = 100;
 constexpr int kContentTimeoutMs = 1200;
 constexpr long long kCacheSeconds = 60;
@@ -612,7 +613,14 @@ public:
     winshun::Items query(const winshun::Query& q) override
     {
         const auto started = std::chrono::steady_clock::now();
-        const finder::Plan plan = finder::parsePlan(q.text, currentSettings().extraTypes);
+        g_autoContext = 0;
+        const Settings base = currentSettings();
+        if (base.maxLength == 0) {
+            const int cap = base.contextCap == 0 ? 512 : base.contextCap;
+            const int approx = finder::utf8Length(q.text) * 2 + 64;
+            g_autoContext = std::max(128, std::min(cap, approx));
+        }
+        const finder::Plan plan = finder::parsePlan(q.text, base.extraTypes);
         const std::string text = finder::trim(q.text);
         const std::string prefix = q.keyword.empty() ? (chinese() ? "找 " : "find ") : q.keyword + " ";
 
@@ -666,7 +674,7 @@ public:
         const long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count();
         winshun::debug("[find] chars=" + std::to_string(finder::utf8Length(text)) + " concepts=" + std::to_string(plan.concepts.size())
             + " terms=" + std::to_string(plan.terms.size()) + " calls=" + std::to_string(outcome.calls) + " files=" + std::to_string(files)
-            + " items=" + std::to_string(items.size()) + " ms=" + std::to_string(ms));
+            + " items=" + std::to_string(items.size()) + " ctx=" + std::to_string(g_autoContext) + " ms=" + std::to_string(ms));
 
         if (m_cache.size() > 24)
             m_cache.clear();
@@ -784,7 +792,8 @@ private:
         std::string device = "auto";
         std::string modelDir = "models\\bge-small-zh-v1.5-int8";
         int threads = 4;
-        int maxLength = 128;
+        int maxLength = 0;
+        int contextCap = 256;
         std::string extraTypes;
         std::string wechatDirs;
     };
@@ -804,7 +813,8 @@ private:
         if (settings()["modelDir"].isString() && !settings()["modelDir"].toString().empty())
             s.modelDir = settings()["modelDir"].toString();
         s.threads = std::max(1, std::min(8, static_cast<int>(settings()["threads"].toInt(4))));
-        s.maxLength = std::max(64, std::min(512, static_cast<int>(settings()["maxLength"].toInt(128))));
+        s.maxLength = std::max(0, std::min(512, static_cast<int>(settings()["maxLength"].toInt(0))));
+        s.contextCap = std::max(0, std::min(512, static_cast<int>(settings()["contextCap"].toInt(256))));
         s.extraTypes = settings()["extraTypes"].toString();
         s.wechatDirs = settings()["wechatDirs"].toString();
         std::string list = settings()["folders"].toString();
@@ -828,7 +838,7 @@ private:
             + std::to_string(settings()["maxResults"].toInt(12)) + "|" + (settings()["snippets"].toBool(true) ? "1" : "0")
             + "|" + (settings()["useModel"].toBool(true) ? "1" : "0") + "|" + settings()["modelPreset"].toString()
             + "|" + settings()["device"].toString() + "|" + settings()["modelDir"].toString() + "|"
-            + std::to_string(settings()["threads"].toInt(4)) + "|" + std::to_string(settings()["maxLength"].toInt(128))
+            + std::to_string(settings()["threads"].toInt(4)) + "|" + std::to_string(settings()["maxLength"].toInt(0)) + "|" + std::to_string(settings()["contextCap"].toInt(256))
             + "|" + settings()["extraTypes"].toString() + "|" + settings()["wechatDirs"].toString();
     }
 
@@ -891,7 +901,8 @@ private:
         const std::string dir = modelDirFor(s);
         const auto started = std::chrono::steady_clock::now();
         std::string error;
-        if (!m_embedder.load(dir, s.threads, s.maxLength)) {
+        const int context = s.maxLength == 0 ? (g_autoContext > 0 ? g_autoContext : 128) : s.maxLength;
+        if (!m_embedder.load(dir, s.threads, context)) {
             m_embedderError = m_embedder.error();
             winshun::debug("[find] model not loaded: " + m_embedderError);
             return;
@@ -1170,7 +1181,12 @@ private:
 
         // A folder name is a term the name index understands (it matches a
         // parent folder too), so "桌面上的大文件" is not a global scan.
-        if (!plan.folder.empty()) {
+        // A folder + size/date with no name/type is the exception: the index
+        // returns nothing for "Downloads size:>5mb", so query the condition
+        // alone and filter by folder locally.
+        const bool hasFilters = plan.minSizeSet || plan.maxSizeSet || plan.time.set;
+        const bool folderOnly = plan.terms.empty() && !plan.type.set && !plan.folder.empty();
+        if (!plan.folder.empty() && !(folderOnly && hasFilters)) {
             const std::string folder = folderTerm(plan.folder);
             if (!folder.empty())
                 strict = quoteWord(folder) + (strict.empty() ? std::string() : " " + strict);
@@ -1197,7 +1213,8 @@ private:
 
         if (!strict.empty()) {
             Json args = Json::Object {{"query", strict}, {"kind", plan.type.folders ? "folders" : "all"},
-                {"limit", listing ? 100 : kNameLimit}, {"sort", listing ? "modified" : "relevance"}};
+                {"limit", (folderOnly && hasFilters) ? 200 : (listing ? 100 : kNameLimit)},
+                {"sort", (listing || (folderOnly && hasFilters)) ? "modified" : "relevance"}};
             const Json r = tool("search_files", args);
             ++out.calls;
             logTool("search_files", strict, r);

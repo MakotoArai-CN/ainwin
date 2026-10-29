@@ -30,7 +30,7 @@
 
 ## 关键字
 
-`找`（备用 `zf`、`f`）。单独输入关键字会显示示例和键盘说明；输入 `找 ` 加空格后描述。
+默认关键字：`找`、`find`、`search`、`f`、`zf`。在 **Win顺 设置 → 插件 → 随心搜 → 关键字** 里可以完全改成自己的；插件只提供默认值。单独输入关键字会显示示例和键盘说明；输入关键字加空格后描述。
 
 复杂句会拆成可核对的条件：
 
@@ -63,6 +63,8 @@
 | 邮件/证书/抓包 | eml/msg/mbox/pst/ost、cer/crt/pem/der/pfx/p12/key/gpg/csr、pcap/pcapng/har |
 | 字体/字幕/电子书/种子 | ttf/otf/woff/woff2/ttc、srt/ass/ssa/vtt/sub/idx/sup、epub/mobi/azw3/kfx/fb2/djvu/chm/cbz/cbr、torrent |
 | 游戏/虚拟化/备份 | pak/uasset/umap/unitypackage/assetbundle/wad/vpk/bsa、vhd/vhdx/vmdk/vdi/qcow2、bak/backup/bkp |
+
+`.ts` 不再算视频：它更常见是 TypeScript；真正的 MPEG-TS 视频请用 `ext:ts`。
 
 另外三种兜底，保证“冷门类型”也能查：
 
@@ -174,6 +176,28 @@
 
 `auto`（默认）：**内存 ≥ 16 GB 且 `bge-base` 文件夹存在**时用 `balanced`，否则用 `light`。测试机 8 GB，自动落在 `light`。
 
+### 上下文
+
+- 设置里的“上下文（tokens）”用 `0` 表示自动：按查询长度增长，默认上限 256；
+- “自动扩容上限”可调到 512，或设为 0 使用模型上限；
+- 固定值范围 64–512；
+- 上下文只影响向量重排读多少文字，不会改变文件类型、大小、文件夹这些硬过滤。
+
+### 多语言模型（实验，未随包）
+
+当前发布只带中文 bge-small/base，tokenizer 是 BERT WordPiece。日语/多语言模型没有随包，也没有把未跑通的数字写进基准表。
+
+`bench/retrieval_ja.json` 是 12 条日语段落/查询的烟测集，用于以后验证：
+
+| 模型 | tokenizer | 现状 |
+|---|---|---|
+| bge-small/base/large zh | WordPiece | 中文已测；日语不建议 |
+| multilingual MiniLM / e5 | Unigram/SentencePiece | 当前 tokenizer 不兼容，需要新增 tokenizer 层 |
+| multilingual BERT | WordPiece | 可做管线烟测，但原版 BERT 不是句向量模型，检索质量不保证 |
+| bge-m3 | SentencePiece + 多向量 | 需要新 tokenizer 和模型接口，暂不支持 |
+
+这次测试环境访问 Hugging Face 被网络阻断，日语集已加入仓库但**没有伪造准确率**。将来多语言应按“模型 + tokenizer + 语言包”三者一起换，不能只换 ONNX。
+
 ### 基准测试（不是主观感觉）
 
 完整的测试机配置、数据集、指标定义、失败样例和复现命令在 **[bench/README.md](bench/README.md)**。摘要：
@@ -208,7 +232,7 @@
 - `EmbeddingGemma-300M (INT8)`：约 300 MB，多语言，使用 SentencePiece/Unigram；同样需要额外 tokenizer，且 CPU 上更慢，未随包。
 - `PicoQMD`：在 Hugging Face 上没有找到公开的权重/模型卡（搜索为空），无法作为可下载依赖，故未采用。
 
-“放开限制”的部分：`sandbox: normal`（为了加载 DLL/模型）、`memoryMB: 1024`、`timeoutMs: 10000`、`idleExitSec: 0`（常驻不退出）、线程最多 8。没有放开网络、剪贴板、子进程或管理员权限。
+“放开限制”的部分：`sandbox: normal`（为了加载 DLL/模型）、`memoryMB: 1024`、`timeoutMs: 10000`、`idleExitSec: 60`（闲置退出）、线程最多 8。没有放开网络、剪贴板、子进程或管理员权限。
 
 模型资产合计约 **127 MB**（small 24 MB + base 103 MB），加上 ORT DLL 19 MB、exe 1 MB；large 的 327 MB 不随包。
 

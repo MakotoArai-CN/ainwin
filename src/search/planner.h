@@ -521,7 +521,7 @@ inline const std::vector<TypeWord>& typeWords()
         {"gis", "地图", "地图,gis,地理数据,shapefile", "shp,shx,dbf,geojson,kml,kmz,gpx,dem,las,laz,topojson", false, false},
         {"design", "设计稿", "设计稿,设计源文件,figma,sketch源文件,indesign", "psd,ai,eps,indd,idml,fig,sketch,xd,afdesign,afphoto,cdr", false, false},
         {"images", "图片", "图片,照片,相片,图像,截图,截屏,壁纸,image,images,picture,photo,photos,screenshot", "jpg,jpeg,jfif,png,gif,bmp,webp,heic,heif,avif,jxl,tif,tiff,ico,svg,psd,ai,eps,raw,cr2,cr3,nef,arw,dng,orf,rw2,exr,hdr,dds,ktx,tga,pcx,pbm,pgm,ppm", false, true},
-        {"videos", "视频", "视频,影片,电影,录像,movie,video,videos", "mp4,mkv,avi,mov,wmv,flv,f4v,webm,m4v,mpg,mpeg,m2v,ts,mts,m2ts,3gp,ogv,rm,rmvb,vob,mxf,asf,dv,wtv", false, true},
+        {"videos", "视频", "视频,影片,电影,录像,movie,video,videos", "mp4,mkv,avi,mov,wmv,flv,f4v,webm,m4v,mpg,mpeg,m2v,mts,m2ts,3gp,ogv,rm,rmvb,vob,mxf,asf,dv,wtv", false, true},
         {"audio", "音频", "音乐,歌曲,音频,录音,audio,music,song", "mp3,wav,flac,aac,m4a,m4b,ogg,opus,wma,ape,aiff,aif,aifc,alac,mid,midi,amr,caf,dsf,dff,wv", false, true},
         {"disks", "镜像", "镜像,系统镜像,disk image,iso镜像", "iso,img,vhd,vhdx,vmdk,qcow2,wim,dmg,ova,ovf", false, false},
         {"archives", "压缩包", "压缩包,压缩文件,archive,zip,rar,7z", "zip,zipx,rar,7z,tar,gz,tgz,bz2,xz,zst,lz4,lzma,cab,lzh,arj,ace", false, true},
